@@ -1,0 +1,1 @@
+Version 7.1 clears previous answer preview when moving to the next question. Upload index.html and questions.json to GitHub root. Keep your audio_questions folder.
