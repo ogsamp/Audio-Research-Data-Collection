@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio Research Tool V8.2 Secure Research Platform</title>
+<title>Audio Research Tool V8.3 Professional Research Edition</title>
 <style>
 body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}
 header{background:#173b57;color:white;text-align:center;padding:24px}
-main{max-width:1100px;margin:22px auto;padding:0 14px}
+main{max-width:1120px;margin:22px auto;padding:0 14px}
 .card{background:#fff;border:1px solid #d8deea;border-radius:12px;padding:20px;margin:16px 0}
 h2,h3{color:#173b57;margin-top:0}label{font-weight:bold;display:block;margin-top:10px}
 input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;margin:6px 0 10px;font-size:15px}
@@ -25,20 +25,20 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid 
 .nav button{min-width:180px}.small{font-size:13px;color:#666}
 </style></head>
 <body>
-<header><h1 id="pageTitle">Audio Research Tool V8.2</h1><p id="pageSubtitle">Secure respondent-only audio research platform.</p></header>
-<div class="nav">
+<header><h1 id="pageTitle">Audio Research Tool V8.3</h1><p id="pageSubtitle">Professional audio research data collection and analysis support platform.</p></header>
+<div class="nav" id="navBar">
 <button class="success" onclick="openTab('respondentTab')">Respondent Interview</button>
-<button class="primary" onclick="showResearcherLogin()">Researcher Access</button>
-<button class="muted" onclick="openTab('analysisTab')">Analysis Guide</button>
+<button class="primary adminOnly" onclick="showResearcherLogin()">Researcher Access</button>
+<button class="muted adminOnly" onclick="openTab('analysisTab')">Analysis Guide</button>
 </div>
 <main>
 
 <section id="researcherLoginTab" class="tab">
 <div class="card">
 <h2>Researcher Login</h2>
-<p class="notice">Researcher dashboard is protected. Default PIN is <b>1234</b>. Change it after logging in.</p>
+<p class="notice">Default PIN is <b>1234</b>. Change it after logging in.</p>
 <label>Researcher PIN</label><input id="researcherPinInput" type="password" placeholder="Enter PIN">
-<div class="row"><button class="primary" onclick="loginResearcher()">Open Researcher Dashboard</button><button class="muted" onclick="openTab('respondentTab')">Back to Respondent View</button></div>
+<div class="row"><button class="primary" onclick="loginResearcher()">Open Researcher Dashboard</button><button class="muted" onclick="openTab('respondentTab')">Back</button></div>
 </div>
 </section>
 
@@ -46,6 +46,15 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid 
 <div class="card">
 <h2>Researcher Dashboard</h2>
 <div id="readinessBox" class="notice">Checking readiness...</div>
+
+<h3>Project Information</h3>
+<label>Project ID</label><input id="projectId" placeholder="Example: UVTAB-AR-2026-001" oninput="saveSettings()">
+<label>Project Title</label><input id="projectTitle" placeholder="Example: TVET Assessment Quality Study" oninput="saveSettings()">
+<label>Institution / Organisation</label><input id="institution" placeholder="Example: UVTAB" oninput="saveSettings()">
+<label>Principal Researcher</label><input id="researcherName" placeholder="Researcher name" oninput="saveSettings()">
+<label>Researcher Contact</label><input id="researcherContact" placeholder="Email or phone" oninput="saveSettings()">
+
+<h3>Survey Settings</h3>
 <label>Survey Title</label><input id="surveyTitle" value="Audio Research Data Collection" oninput="saveSettings()">
 <label>Survey Description</label><textarea id="surveyDescription" rows="2" oninput="saveSettings()">Please listen to each question and record your answer.</textarea>
 <label>Submission Web App URL <span style="color:red">*</span></label><input id="submitUrl" placeholder="Google Apps Script Web App URL" oninput="saveSettings()">
@@ -53,21 +62,42 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid 
 <label>Require Consent?</label><select id="requireConsent" onchange="saveSettings()"><option>Yes</option><option>No</option></select>
 <label>Allow Submission After Closing Date?</label><select id="allowAfterClose" onchange="saveSettings()"><option>No</option><option>Yes</option></select>
 <label>Change Researcher PIN</label><input id="newPin" type="password" placeholder="Optional new PIN">
-<div class="row"><button class="success" onclick="saveSettings()">Save Settings</button><button class="primary" onclick="changePin()">Change PIN</button><button class="muted" onclick="openTab('respondentTab')">Launch Respondent View</button></div>
+<div class="row">
+<button class="success" onclick="saveSettings()">Save Settings</button>
+<button class="primary" onclick="changePin()">Change PIN</button>
+<button class="muted" onclick="openTab('respondentTab')">Launch Respondent View</button>
+</div>
 </div>
 
 <div class="card">
 <h2>Question Management</h2>
-<p class="notice">Submission URL must be configured before questions can be saved. After recording, download the audio and upload it to GitHub <b>audio_questions</b> folder. Then download and upload updated <b>questions.json</b>.</p>
+<p class="notice">Submission URL must be configured before questions can be saved. Recorded question audio must be downloaded and uploaded to GitHub <b>audio_questions</b> folder.</p>
 <label>Question Text / Label</label><input id="newQuestionText" placeholder="Type the question text or label">
-<div class="row"><button class="primary" onclick="addTextQuestion()">Add Text Question</button><button class="primary" onclick="startQuestionRecording()">Record Question Audio</button><button class="danger" onclick="stopQuestionRecording()">Stop Recording</button><button class="muted" onclick="playTempQuestion()">Play Preview</button></div>
+<div class="row">
+<button class="primary" onclick="addTextQuestion()">Add Text Question</button>
+<button class="primary" onclick="startQuestionRecording()">Record Question Audio</button>
+<button class="danger" onclick="stopQuestionRecording()">Stop Recording</button>
+<button class="muted" onclick="playTempQuestion()">Play Preview</button>
+</div>
 <audio id="tempQuestionPreview" controls class="hidden"></audio>
-<div class="row"><button class="success" onclick="saveRecordedQuestion()">Save Recorded Question</button><button class="warning" onclick="downloadQuestionJson()">Download questions.json</button><button class="muted" onclick="downloadRecordedQuestionAudio()">Download Last Recorded Audio</button></div>
+<div class="row">
+<button class="success" onclick="saveRecordedQuestion()">Save Recorded Question</button>
+<button class="warning" onclick="downloadQuestionJson()">Download questions.json</button>
+<button class="muted" onclick="downloadRecordedQuestionAudio()">Download Last Recorded Audio</button>
+</div>
 <p class="status" id="questionRecordStatus">Ready.</p>
 <h3>Current Questions</h3><div id="questionList"></div>
 </div>
 
-<div class="card"><h2>Research Dashboard</h2><div id="researchDashboard"></div><p class="small">Counts are based on this browser session. Google Sheets remains the official database.</p></div>
+<div class="card">
+<h2>Research Dashboard</h2>
+<div id="researchDashboard"></div>
+<div class="row">
+<button class="primary" onclick="downloadAnalysisTemplate()">Download Analysis Template CSV</button>
+<button class="muted" onclick="copyShareLink()">Copy Respondent Share Link</button>
+</div>
+<p class="small">Official submissions are stored in Google Sheets and Google Drive.</p>
+</div>
 </section>
 
 <section id="respondentTab" class="tab active">
@@ -86,42 +116,45 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid 
 
 <section id="analysisTab" class="tab">
 <div class="card">
-<h2>Audio Data Analysis Guide</h2>
-<table><tr><th>Stage</th><th>Action</th><th>Meaning Produced</th></tr>
-<tr><td>Verification</td><td>Check Google Sheet and Drive for complete submissions.</td><td>Data completeness.</td></tr>
-<tr><td>Transcription</td><td>Convert audio answers into text.</td><td>Readable evidence.</td></tr>
-<tr><td>Coding</td><td>Mark repeated ideas, complaints and recommendations.</td><td>Patterns in responses.</td></tr>
-<tr><td>Theming</td><td>Group similar codes.</td><td>Major findings.</td></tr>
-<tr><td>Frequency</td><td>Count how often each theme appears.</td><td>Strength of evidence.</td></tr>
-<tr><td>Interpretation</td><td>Explain what themes mean for the research problem.</td><td>Conclusions.</td></tr>
-<tr><td>Recommendation</td><td>Translate findings into action.</td><td>Policy/management decisions.</td></tr></table>
-</div></section>
+<h2>Analysis and Reporting Guide</h2>
+<table><tr><th>Stage</th><th>Action</th><th>Output</th></tr>
+<tr><td>Verify</td><td>Check Google Sheet and Drive.</td><td>Complete dataset.</td></tr>
+<tr><td>Transcribe</td><td>Convert audio responses to text.</td><td>Transcript column.</td></tr>
+<tr><td>Code</td><td>Mark repeated ideas.</td><td>Codes.</td></tr>
+<tr><td>Theme</td><td>Group codes.</td><td>Findings.</td></tr>
+<tr><td>Count</td><td>Count theme mentions.</td><td>Frequency table.</td></tr>
+<tr><td>Interpret</td><td>Explain meaning.</td><td>Conclusions.</td></tr>
+<tr><td>Recommend</td><td>Translate findings into action.</td><td>Report recommendations.</td></tr></table>
+</div>
+</section>
 </main>
 
 <script>
 let questions=[],answers=[],currentIndex=0,mediaRecorder=null,chunks=[],currentAnswerBlob=null;
 let questionRecorder=null,questionChunks=[],tempQuestionBlob=null,lastRecordedQuestionFile="";
 let preloadedAudio={};
-const KEY="audioResearchV82Settings"; const PIN_KEY="audioResearchV82Pin";
+const KEY="audioResearchV83Settings"; const PIN_KEY="audioResearchV83Pin";
 function el(id){return document.getElementById(id)}
 function fileSafe(s){return String(s||"unknown").replace(/[^a-z0-9_-]/gi,"_")}
 function csv(s){return '"'+String(s||"").replace(/"/g,'""').replace(/\\n/g," ")+'"'}
 function stamp(){return new Date().toISOString()}
 function openTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el(id).classList.add('active');checkSurveyStatus()}
+function initAdminVisibility(){const params=new URLSearchParams(location.search);const isAdmin=params.has("admin");document.querySelectorAll(".adminOnly").forEach(b=>b.style.display=isAdmin?"inline-block":"none");}
 function showResearcherLogin(){openTab('researcherLoginTab')}
 function loginResearcher(){const saved=localStorage.getItem(PIN_KEY)||"1234";if(el("researcherPinInput").value===saved){openTab("researcherTab");el("researcherPinInput").value=""}else alert("Wrong researcher PIN.")}
 function changePin(){const p=el("newPin").value.trim();if(!p){alert("Enter new PIN.");return}localStorage.setItem(PIN_KEY,p);el("newPin").value="";alert("Researcher PIN changed.")}
 function hasSubmitUrl(){return !!el("submitUrl").value.trim()}
-function saveSettings(){const s={surveyTitle:el("surveyTitle").value,surveyDescription:el("surveyDescription").value,submitUrl:el("submitUrl").value,closingDate:el("closingDate").value,requireConsent:el("requireConsent").value,allowAfterClose:el("allowAfterClose").value};localStorage.setItem(KEY,JSON.stringify(s));applySettings()}
-function loadSettings(){try{const s=JSON.parse(localStorage.getItem(KEY)||"{}");if(s.surveyTitle)el("surveyTitle").value=s.surveyTitle;if(s.surveyDescription)el("surveyDescription").value=s.surveyDescription;if(s.submitUrl)el("submitUrl").value=s.submitUrl;if(s.closingDate)el("closingDate").value=s.closingDate;if(s.requireConsent)el("requireConsent").value=s.requireConsent;if(s.allowAfterClose)el("allowAfterClose").value=s.allowAfterClose}catch(e){}applySettings()}
-function applySettings(){el("pageTitle").innerText=el("surveyTitle").value||"Audio Research Tool V8.2";el("pageSubtitle").innerText=el("surveyDescription").value||"";el("consentLabel").style.display=el("requireConsent").value==="Yes"?"block":"none";el("consent").style.display=el("requireConsent").value==="Yes"?"block":"none";checkSurveyStatus();renderDashboard();renderReadiness()}
+function saveSettings(){const ids=["projectId","projectTitle","institution","researcherName","researcherContact","surveyTitle","surveyDescription","submitUrl","closingDate","requireConsent","allowAfterClose"];let s={};ids.forEach(id=>s[id]=el(id).value);localStorage.setItem(KEY,JSON.stringify(s));applySettings()}
+function loadSettings(){try{const s=JSON.parse(localStorage.getItem(KEY)||"{}");Object.keys(s).forEach(k=>{if(el(k))el(k).value=s[k]})}catch(e){}applySettings()}
+function applySettings(){el("pageTitle").innerText=el("surveyTitle").value||"Audio Research Tool V8.3";el("pageSubtitle").innerText=el("surveyDescription").value||"";el("consentLabel").style.display=el("requireConsent").value==="Yes"?"block":"none";el("consent").style.display=el("requireConsent").value==="Yes"?"block":"none";checkSurveyStatus();renderDashboard();renderReadiness()}
 function isClosed(){const c=el("closingDate").value;if(!c)return false;return new Date()>new Date(c)}
 function isReady(){return questions.length>0 && hasSubmitUrl() && !(isClosed()&&el("allowAfterClose").value==="No")}
-function renderReadiness(){let msgs=[];msgs.push((questions.length>0?"✓":"✗")+" Questions loaded: "+questions.length);msgs.push((hasSubmitUrl()?"✓":"✗")+" Submission URL configured");msgs.push((isClosed()?"✗ Survey closed":"✓ Survey open"));const ready=isReady();el("readinessBox").className=ready?"good":"bad";el("readinessBox").innerHTML="<b>Survey Status: "+(ready?"READY FOR RESPONDENTS":"NOT READY")+"</b><br>"+msgs.join("<br>")}
-function checkSurveyStatus(){const closed=isClosed(),allow=el("allowAfterClose").value==="Yes";if(closed&&!allow){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey closed. The final date for submitting responses has passed.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else if(!hasSubmitUrl()){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey not ready. Researcher must configure the Submission Web App URL.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else{el("surveyStatusBox").className="good";el("surveyStatusBox").innerText="Survey is open."+(el("closingDate").value?" Closing date: "+el("closingDate").value:" No closing date set.");el("startBtn").disabled=false;el("submitBtn").disabled=false}renderReadiness()}
+function renderReadiness(){if(!el("readinessBox"))return;let msgs=[];msgs.push((questions.length>0?"✓":"✗")+" Questions loaded: "+questions.length);msgs.push((hasSubmitUrl()?"✓":"✗")+" Submission URL configured");msgs.push((isClosed()?"✗ Survey closed":"✓ Survey open"));msgs.push((el("projectId").value?"✓":"!")+" Project ID: "+(el("projectId").value||"not set"));const ready=isReady();el("readinessBox").className=ready?"good":"bad";el("readinessBox").innerHTML="<b>Survey Status: "+(ready?"READY FOR RESPONDENTS":"NOT READY")+"</b><br>"+msgs.join("<br>")}
+function checkSurveyStatus(){const closed=isClosed(),allow=el("allowAfterClose").value==="Yes";if(closed&&!allow){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey closed. The final date for submitting responses has passed.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else if(!hasSubmitUrl()){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey not ready. Researcher must configure the Submission Web App URL.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else{el("surveyStatusBox").className="good";el("surveyStatusBox").innerText="Survey is open."+(el("closingDate").value?" Closing date: "+formatDate(el("closingDate").value):" No closing date set.");el("startBtn").disabled=false;el("submitBtn").disabled=false}renderReadiness()}
+function formatDate(v){try{return new Date(v).toLocaleString()}catch(e){return v}}
 async function loadQuestions(){try{const r=await fetch("questions.json?cache="+Date.now());questions=await r.json();el("loadStatus").innerText="Loaded "+questions.length+" questions.";preloadAudio(0);preloadAudio(1);renderQuestions();renderSummary();renderDashboard();renderReadiness();checkSurveyStatus()}catch(e){el("loadStatus").innerText="Could not load questions.json.";renderQuestions();checkSurveyStatus()}}
 function preloadAudio(i){if(i<0||i>=questions.length)return;const src=questions[i].audio;if(!src||preloadedAudio[src])return;const a=new Audio();a.preload="auto";a.src=src;a.load();preloadedAudio[src]=a}
-function renderQuestions(){let h="";if(!questions.length)h="<p>No questions loaded.</p>";questions.forEach((q,i)=>{h+="<div class='questionItem'><b>"+(i+1)+". "+q.text+"</b><br><span class='small'>"+(q.audio||"No audio path")+"</span><div class='row'><button class='muted' onclick='moveQ("+i+",-1)'>Move Up</button><button class='muted' onclick='moveQ("+i+",1)'>Move Down</button><button class='danger' onclick='deleteQ("+i+")'>Delete</button></div></div>"});el("questionList").innerHTML=h}
+function renderQuestions(){if(!el("questionList"))return;let h="";if(!questions.length)h="<p>No questions loaded.</p>";questions.forEach((q,i)=>{h+="<div class='questionItem'><b>"+(i+1)+". "+q.text+"</b><br><span class='small'>"+(q.audio||"No audio path")+"</span><div class='row'><button class='muted' onclick='moveQ("+i+",-1)'>Move Up</button><button class='muted' onclick='moveQ("+i+",1)'>Move Down</button><button class='danger' onclick='deleteQ("+i+")'>Delete</button></div></div>"});el("questionList").innerHTML=h}
 function requireSubmitUrlForQuestion(){if(!hasSubmitUrl()){alert("Please configure the Submission Web App URL before saving or recording questions.");return false}return true}
 function renumber(){questions.forEach((q,i)=>q.id=i+1)}
 function addTextQuestion(){if(!requireSubmitUrlForQuestion())return;const text=el("newQuestionText").value.trim();if(!text){alert("Type the question first.");return}const n=questions.length+1;questions.push({id:n,text:text,audio:"audio_questions/Question_"+n+".mp3.m4a"});el("newQuestionText").value="";renderQuestions();renderDashboard();renderReadiness()}
@@ -141,11 +174,13 @@ async function startAnswer(){try{clearAnswerPreview();chunks=[];const stream=awa
 function stopAnswer(){if(mediaRecorder&&mediaRecorder.state!=="inactive")mediaRecorder.stop();else alert("No recording running.")}
 function saveAnswer(){if(!currentAnswerBlob){alert("Record answer first.");return}const rid=fileSafe(el("respondentId").value),q=questions[currentIndex];answers.push({respondentId:rid,questionId:q.id,questionText:q.text,questionAudio:q.audio,answerFileName:rid+"_answer_question_"+q.id+".webm",answerBlob:currentAnswerBlob,timestamp:stamp(),notes:el("notes").value});currentIndex++;showCurrentQuestion()}
 function renderSummary(){el("summary").innerHTML="<p><span class='badge'>Questions: "+questions.length+"</span><span class='badge'>Saved answers: "+answers.length+"</span></p>"}
-function renderDashboard(){if(el("researchDashboard"))el("researchDashboard").innerHTML="<p><span class='badge'>Loaded Questions: "+questions.length+"</span><span class='badge'>Current Saved Answers: "+answers.length+"</span><span class='badge'>Survey Status: "+(isClosed()?"Closed":"Open")+"</span></p>"}
-function downloadMyCsv(){let out="respondent_id,question_id,question_text,question_audio,answer_audio,timestamp,notes\\n";answers.forEach(a=>out+=csv(a.respondentId)+","+a.questionId+","+csv(a.questionText)+","+csv(a.questionAudio)+","+csv(a.answerFileName)+","+csv(a.timestamp)+","+csv(a.notes)+"\\n");download(new Blob([out],{type:"text/csv"}),fileSafe(el("respondentId").value)+"_metadata.csv")}
+function renderDashboard(){if(el("researchDashboard"))el("researchDashboard").innerHTML="<p><span class='badge'>Loaded Questions: "+questions.length+"</span><span class='badge'>Current Saved Answers: "+answers.length+"</span><span class='badge'>Survey Status: "+(isClosed()?"Closed":"Open")+"</span><span class='badge'>Project ID: "+(el("projectId").value||"Not set")+"</span></p>"}
+function downloadMyCsv(){let out="project_id,project_title,institution,researcher,respondent_id,question_id,question_text,question_audio,answer_audio,timestamp,notes\\n";answers.forEach(a=>out+=csv(el("projectId").value)+","+csv(el("projectTitle").value)+","+csv(el("institution").value)+","+csv(el("researcherName").value)+","+csv(a.respondentId)+","+a.questionId+","+csv(a.questionText)+","+csv(a.questionAudio)+","+csv(a.answerFileName)+","+csv(a.timestamp)+","+csv(a.notes)+"\\n");download(new Blob([out],{type:"text/csv"}),fileSafe(el("respondentId").value)+"_metadata.csv")}
 function downloadMyAudio(){if(!answers.length){alert("No answers recorded.");return}answers.forEach(a=>download(a.answerBlob,a.answerFileName))}
+function downloadAnalysisTemplate(){let out="Respondent ID,Question ID,Transcript,Code 1,Code 2,Theme,Sample Quote,Interpretation,Recommendation\\n";download(new Blob([out],{type:"text/csv"}),"audio_research_analysis_template.csv")}
+function copyShareLink(){navigator.clipboard.writeText(location.origin+location.pathname);alert("Clean respondent link copied.")}
 function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a)}
 function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onloadend=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(blob)})}
-async function submitOnline(){checkSurveyStatus();if(!isReady()){alert("Survey is not ready or is closed.");return}const url=el("submitUrl").value.trim();if(!answers.length){alert("No answers to submit.");return}el("submitStatus").innerText="Preparing upload...";try{const files=[];for(const a of answers){files.push({fileName:a.answerFileName,mimeType:"audio/webm",base64:await blobToBase64(a.answerBlob),questionId:a.questionId})}const metadata=answers.map(a=>({respondentId:a.respondentId,questionId:a.questionId,questionText:a.questionText,questionAudio:a.questionAudio,answerFileName:a.answerFileName,timestamp:a.timestamp,notes:a.notes}));const payload={surveyTitle:el("surveyTitle").value,respondentId:fileSafe(el("respondentId").value),consent:el("consent").value,notes:el("notes").value,submittedAt:stamp(),metadata,files};const r=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});el("submitStatus").innerText="Submitted: "+await r.text();alert("Submitted successfully.");el("submitBtn").disabled=true}catch(e){el("submitStatus").innerText="Submission failed. Download backups.";alert("Submission failed. Download backups.")}}
-loadSettings();loadQuestions();openTab("respondentTab");
+async function submitOnline(){checkSurveyStatus();if(!isReady()){alert("Survey is not ready or is closed.");return}const url=el("submitUrl").value.trim();if(!answers.length){alert("No answers to submit.");return}el("submitStatus").innerText="Preparing upload...";try{const files=[];for(const a of answers){files.push({fileName:a.answerFileName,mimeType:"audio/webm",base64:await blobToBase64(a.answerBlob),questionId:a.questionId})}const metadata=answers.map(a=>({respondentId:a.respondentId,questionId:a.questionId,questionText:a.questionText,questionAudio:a.questionAudio,answerFileName:a.answerFileName,timestamp:a.timestamp,notes:a.notes}));const payload={projectId:el("projectId").value,projectTitle:el("projectTitle").value,institution:el("institution").value,researcherName:el("researcherName").value,researcherContact:el("researcherContact").value,surveyTitle:el("surveyTitle").value,respondentId:fileSafe(el("respondentId").value),consent:el("consent").value,notes:el("notes").value,submittedAt:stamp(),metadata,files};const r=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});el("submitStatus").innerText="Submitted: "+await r.text();alert("Submitted successfully.");el("submitBtn").disabled=true}catch(e){el("submitStatus").innerText="Submission failed. Download backups.";alert("Submission failed. Download backups.")}}
+initAdminVisibility();loadSettings();loadQuestions();openTab("respondentTab");
 </script></body></html>
