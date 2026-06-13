@@ -1,127 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio Research Tool V6</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Research Tool V7</title>
 <style>
-body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}
-header{background:#173b57;color:white;text-align:center;padding:26px}
-main{max-width:1000px;margin:22px auto;padding:0 14px}
-.card{background:#fff;border:1px solid #d8deea;border-radius:12px;padding:20px;margin:16px 0}
-h2{color:#173b57;margin-top:0}
-label{font-weight:bold;display:block;margin-top:10px}
+body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}header{background:#173b57;color:white;text-align:center;padding:26px}
+main{max-width:1000px;margin:22px auto;padding:0 14px}.card{background:#fff;border:1px solid #d8deea;border-radius:12px;padding:20px;margin:16px 0}
+h2{color:#173b57;margin-top:0}label{font-weight:bold;display:block;margin-top:10px}
 input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;margin:6px 0 10px;font-size:15px}
 button{border:0;border-radius:8px;padding:11px 14px;margin:5px;cursor:pointer;font-size:14px}
 .primary{background:#173b57;color:white}.success{background:#1f7a3a;color:white}.danger{background:#a52727;color:white}.muted{background:#e8e8e8}
-.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1;min-width:160px}
-.notice{background:#fff8e5;border:1px solid #e1c46b;padding:10px;border-radius:8px}
-.good{background:#eaf8ee;border:1px solid #7ac28a;padding:10px;border-radius:8px}
-.status{font-weight:bold;color:#173b57}.hidden{display:none}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1;min-width:160px}.notice{background:#fff8e5;border:1px solid #e1c46b;padding:10px;border-radius:8px}.good{background:#eaf8ee;border:1px solid #7ac28a;padding:10px;border-radius:8px}.status{font-weight:bold;color:#173b57}.hidden{display:none}
 audio{width:100%;margin:8px 0}.badge{display:inline-block;background:#eef4f9;border:1px solid #cbd8e6;border-radius:14px;padding:4px 8px;margin:2px}
-table{width:100%;border-collapse:collapse;font-size:14px}td,th{border:1px solid #ddd;padding:8px;text-align:left}th{background:#eee}
-</style>
-</head>
-<body>
-<header>
-<h1>Audio Research Data Collection Tool V6</h1>
-<p>Respondents listen to recorded audio questions and record audio answers.</p>
-</header>
+</style></head>
+<body><header><h1>Audio Research Data Collection Tool V7</h1><p>Listen to audio questions, record answers, and submit online.</p></header>
 <main>
-<div class="card">
-<h2>Respondent Details</h2>
-<p class="good">Locked respondent version. Respondents cannot add, edit, delete, or reorder questions.</p>
-<label>Respondent ID</label><input id="respondentId" placeholder="Example: R001">
-<label>Consent Confirmed?</label><select id="consent"><option>Yes</option><option>No</option></select>
-<label>Notes</label><textarea id="notes" rows="2" placeholder="Optional"></textarea>
-<div class="row"><button class="primary" onclick="startInterview()">Start Interview</button><button class="muted" onclick="loadQuestions()">Reload Questions</button></div>
-<p class="status" id="loadStatus">Loading questions...</p>
-</div>
-<div class="card hidden" id="interviewPanel">
-<h2 id="questionTitle">Question</h2>
-<p class="notice" id="questionText"></p>
-<audio id="questionAudio" controls></audio>
-<div class="row">
-<button class="muted" onclick="playQuestion()">Play Question</button>
-<button class="primary" onclick="startAnswer()">Start Recording Answer</button>
-<button class="danger" onclick="stopAnswer()">Stop Recording</button>
-<button class="success" onclick="saveAnswer()">Save Answer and Continue</button>
-</div>
-<audio id="answerPreview" controls></audio>
-<p class="status" id="interviewStatus">Ready.</p>
-</div>
-<div class="card">
-<h2>Export My Responses</h2>
-<div class="row"><button class="primary" onclick="downloadMyCsv()">Download My Metadata CSV</button><button class="success" onclick="downloadMyAudio()">Download My Audio Answers</button></div>
-<div id="summary"></div>
-</div>
+<div class="card"><h2>Submission Settings</h2><p class="notice">Researcher: paste Google Apps Script Web App URL here before sharing.</p><label>Submission Web App URL</label><input id="submitUrl" oninput="localStorage.setItem('v7url',this.value)" placeholder="Paste Web App URL"></div>
+<div class="card"><h2>Respondent Details</h2><p class="good">Locked respondent version. Respondents cannot edit questions.</p><label>Respondent ID</label><input id="respondentId" placeholder="Example: R001"><label>Consent Confirmed?</label><select id="consent"><option>Yes</option><option>No</option></select><label>Notes</label><textarea id="notes" rows="2"></textarea><div class="row"><button class="primary" onclick="startInterview()">Start Interview</button><button class="muted" onclick="loadQuestions()">Reload Questions</button></div><p class="status" id="loadStatus">Loading questions...</p></div>
+<div class="card hidden" id="interviewPanel"><h2 id="questionTitle">Question</h2><p class="notice" id="questionText"></p><audio id="questionAudio" controls></audio><div class="row"><button class="muted" onclick="playQuestion()">Play Question</button><button class="primary" onclick="startAnswer()">Start Recording Answer</button><button class="danger" onclick="stopAnswer()">Stop Recording</button><button class="success" onclick="saveAnswer()">Save Answer and Continue</button></div><audio id="answerPreview" controls></audio><p class="status" id="interviewStatus">Ready.</p></div>
+<div class="card"><h2>Submit / Backup</h2><div class="row"><button class="success" onclick="submitOnline()">Submit Online</button><button class="primary" onclick="downloadMyCsv()">Download CSV Backup</button><button class="muted" onclick="downloadMyAudio()">Download Audio Backup</button></div><p class="status" id="submitStatus">Not submitted.</p><div id="summary"></div></div>
 </main>
 <script>
 let questions=[],answers=[],currentIndex=0,mediaRecorder=null,chunks=[],currentAnswerBlob=null;
-function el(id){return document.getElementById(id)}
-function fileSafe(s){return String(s||"unknown").replace(/[^a-z0-9_-]/gi,"_")}
-function csv(s){return '"' + String(s||"").replace(/"/g,'""').replace(/\n/g," ") + '"'}
-function stamp(){return new Date().toISOString()}
-async function loadQuestions(){
- try{
-  const r=await fetch("questions.json?cache="+Date.now());
-  if(!r.ok) throw new Error("questions.json not found");
-  questions=await r.json();
-  el("loadStatus").innerText="Loaded "+questions.length+" questions.";
-  renderSummary();
- }catch(e){el("loadStatus").innerText="Could not load questions.json. Check upload."}
-}
-function startInterview(){
- if(!el("respondentId").value.trim()){alert("Enter Respondent ID.");return}
- if(el("consent").value!=="Yes"){alert("Consent is required.");return}
- if(!questions.length){alert("No questions loaded. Click Reload Questions.");return}
- currentIndex=0;answers=[];currentAnswerBlob=null;el("interviewPanel").classList.remove("hidden");showCurrentQuestion();
-}
-function showCurrentQuestion(){
- if(currentIndex>=questions.length){
-  el("questionTitle").innerText="Interview Complete";
-  el("questionText").innerText="All questions answered. Download your metadata and audio answer files.";
-  el("questionAudio").removeAttribute("src");el("answerPreview").removeAttribute("src");
-  el("interviewStatus").innerText="Complete.";renderSummary();return;
- }
- const q=questions[currentIndex];
- el("questionTitle").innerText="Question "+q.id+" ("+(currentIndex+1)+" of "+questions.length+")";
- el("questionText").innerText=q.text||("Question "+q.id);
- el("questionAudio").src=q.audio;
- el("answerPreview").removeAttribute("src");currentAnswerBlob=null;
- el("interviewStatus").innerText="Play the question, record answer, then save and continue.";
-}
+function el(id){return document.getElementById(id)} function fileSafe(s){return String(s||"unknown").replace(/[^a-z0-9_-]/gi,"_")} function csv(s){return '"'+String(s||"").replace(/"/g,'""').replace(/\n/g," ")+'"'} function stamp(){return new Date().toISOString()}
+async function loadQuestions(){try{const r=await fetch("questions.json?cache="+Date.now());questions=await r.json();el("loadStatus").innerText="Loaded "+questions.length+" questions.";renderSummary()}catch(e){el("loadStatus").innerText="Could not load questions.json."}}
+function startInterview(){if(!el("respondentId").value.trim()){alert("Enter Respondent ID.");return} if(el("consent").value!=="Yes"){alert("Consent required.");return} if(!questions.length){alert("No questions loaded.");return} currentIndex=0;answers=[];currentAnswerBlob=null;el("interviewPanel").classList.remove("hidden");showCurrentQuestion()}
+function showCurrentQuestion(){if(currentIndex>=questions.length){el("questionTitle").innerText="Interview Complete";el("questionText").innerText="All questions answered. Submit online or download backup.";el("questionAudio").removeAttribute("src");el("answerPreview").removeAttribute("src");el("interviewStatus").innerText="Complete.";renderSummary();return} const q=questions[currentIndex];el("questionTitle").innerText="Question "+q.id+" ("+(currentIndex+1)+" of "+questions.length+")";el("questionText").innerText=q.text;el("questionAudio").src=q.audio;el("answerPreview").removeAttribute("src");currentAnswerBlob=null;el("interviewStatus").innerText="Play, record, save and continue."}
 function playQuestion(){if(currentIndex<questions.length)el("questionAudio").play()}
-async function startAnswer(){
- try{
-  chunks=[];currentAnswerBlob=null;
-  const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-  mediaRecorder=new MediaRecorder(stream);
-  mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data)};
-  mediaRecorder.onstop=()=>{currentAnswerBlob=new Blob(chunks,{type:"audio/webm"});el("answerPreview").src=URL.createObjectURL(currentAnswerBlob);stream.getTracks().forEach(t=>t.stop());el("interviewStatus").innerText="Answer recorded. Click Save Answer and Continue."};
-  mediaRecorder.start();el("interviewStatus").innerText="Recording answer...";
- }catch(e){alert("Microphone permission failed. Allow microphone access.")}
-}
-function stopAnswer(){if(mediaRecorder&&mediaRecorder.state!=="inactive"){mediaRecorder.stop()}else alert("No recording is running.")}
-function saveAnswer(){
- if(!currentAnswerBlob){alert("Record the answer first.");return}
- const rid=fileSafe(el("respondentId").value),q=questions[currentIndex];
- answers.push({respondentId:rid,questionId:q.id,questionText:q.text,questionAudio:q.audio,answerFileName:rid+"_answer_question_"+q.id+".webm",answerBlob:currentAnswerBlob,timestamp:stamp(),notes:el("notes").value});
- currentIndex++;showCurrentQuestion();
-}
-function renderSummary(){
- let h="<p><span class='badge'>Questions: "+questions.length+"</span><span class='badge'>Saved answers: "+answers.length+"</span></p>";
- if(answers.length){h+="<table><tr><th>Question</th><th>Answer file</th><th>Time</th></tr>";answers.forEach(a=>h+="<tr><td>"+a.questionId+"</td><td>"+a.answerFileName+"</td><td>"+a.timestamp+"</td></tr>");h+="</table>"}
- el("summary").innerHTML=h;
-}
-function downloadMyCsv(){
- let out="respondent_id,question_id,question_text,question_audio,answer_audio,timestamp,notes\n";
- answers.forEach(a=>{out+=csv(a.respondentId)+","+a.questionId+","+csv(a.questionText)+","+csv(a.questionAudio)+","+csv(a.answerFileName)+","+csv(a.timestamp)+","+csv(a.notes)+"\n"});
- download(new Blob([out],{type:"text/csv"}),fileSafe(el("respondentId").value)+"_metadata.csv");
-}
-function downloadMyAudio(){if(!answers.length){alert("No answers recorded yet.");return}answers.forEach(a=>download(a.answerBlob,a.answerFileName))}
+async function startAnswer(){try{chunks=[];const stream=await navigator.mediaDevices.getUserMedia({audio:true});mediaRecorder=new MediaRecorder(stream);mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data)};mediaRecorder.onstop=()=>{currentAnswerBlob=new Blob(chunks,{type:"audio/webm"});el("answerPreview").src=URL.createObjectURL(currentAnswerBlob);stream.getTracks().forEach(t=>t.stop());el("interviewStatus").innerText="Answer recorded. Save and continue."};mediaRecorder.start();el("interviewStatus").innerText="Recording answer..."}catch(e){alert("Allow microphone access.")}}
+function stopAnswer(){if(mediaRecorder&&mediaRecorder.state!=="inactive")mediaRecorder.stop();else alert("No recording running.")}
+function saveAnswer(){if(!currentAnswerBlob){alert("Record answer first.");return} const rid=fileSafe(el("respondentId").value),q=questions[currentIndex];answers.push({respondentId:rid,questionId:q.id,questionText:q.text,questionAudio:q.audio,answerFileName:rid+"_answer_question_"+q.id+".webm",answerBlob:currentAnswerBlob,timestamp:stamp(),notes:el("notes").value});currentIndex++;showCurrentQuestion()}
+function renderSummary(){let h="<p><span class='badge'>Questions: "+questions.length+"</span><span class='badge'>Saved answers: "+answers.length+"</span></p>";el("summary").innerHTML=h}
+function downloadMyCsv(){let out="respondent_id,question_id,question_text,question_audio,answer_audio,timestamp,notes\n";answers.forEach(a=>out+=csv(a.respondentId)+","+a.questionId+","+csv(a.questionText)+","+csv(a.questionAudio)+","+csv(a.answerFileName)+","+csv(a.timestamp)+","+csv(a.notes)+"\n");download(new Blob([out],{type:"text/csv"}),fileSafe(el("respondentId").value)+"_metadata.csv")}
+function downloadMyAudio(){if(!answers.length){alert("No answers recorded.");return} answers.forEach(a=>download(a.answerBlob,a.answerFileName))}
 function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a)}
-loadQuestions();
-</script>
-</body>
-</html>
+function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onloadend=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(blob)})}
+async function submitOnline(){const url=el("submitUrl").value.trim();if(!url){alert("Missing Submission Web App URL.");return} if(!answers.length){alert("No answers to submit.");return} el("submitStatus").innerText="Preparing upload...";try{const files=[];for(const a of answers){files.push({fileName:a.answerFileName,mimeType:"audio/webm",base64:await blobToBase64(a.answerBlob),questionId:a.questionId})} const metadata=answers.map(a=>({respondentId:a.respondentId,questionId:a.questionId,questionText:a.questionText,questionAudio:a.questionAudio,answerFileName:a.answerFileName,timestamp:a.timestamp,notes:a.notes}));const payload={respondentId:fileSafe(el("respondentId").value),consent:el("consent").value,notes:el("notes").value,submittedAt:stamp(),metadata,files};const r=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});el("submitStatus").innerText="Submitted: "+await r.text();alert("Submitted successfully.")}catch(e){el("submitStatus").innerText="Submission failed. Download backups.";alert("Submission failed. Download backups.")}}
+el("submitUrl").value=localStorage.getItem("v7url")||"";loadQuestions();
+</script></body></html>
