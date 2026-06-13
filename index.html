@@ -1,32 +1,557 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Audio Research Tool V5</title>
-<style>body{font-family:Arial;margin:0;background:#f5f7fb;color:#222}header{background:#173b57;color:white;text-align:center;padding:18px}main{max-width:1000px;margin:18px auto;padding:0 12px}.card{background:white;border:1px solid #d8deea;border-radius:12px;padding:18px;margin:14px 0}h2{color:#173b57;margin-top:0}label{font-weight:bold;display:block;margin-top:10px}input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;margin:6px 0 10px}button{border:0;border-radius:8px;padding:10px 13px;margin:4px;cursor:pointer}.primary{background:#173b57;color:white}.success{background:#1f7a3a;color:white}.danger{background:#a52727;color:white}.muted{background:#e8e8e8}.hidden{display:none}.row{display:flex;gap:8px;flex-wrap:wrap}.row button{flex:1;min-width:150px}.item{border:1px solid #d8deea;border-radius:10px;padding:12px;margin:10px 0;background:#fafafa}audio{width:100%;margin:8px 0}.small{font-size:13px;color:#666}.status{font-weight:bold;color:#173b57}.note{background:#fff8e5;border:1px solid #e1c46b;padding:10px;border-radius:8px}.ok{background:#eaf8ee;border:1px solid #7ac28a;padding:10px;border-radius:8px}.badge{display:inline-block;background:#eef4f9;border:1px solid #cbd8e6;border-radius:14px;padding:4px 8px;margin:2px}table{width:100%;border-collapse:collapse;font-size:14px}td,th{border:1px solid #ddd;padding:8px;text-align:left}th{background:#eee}</style></head>
-<body><header><h1>Audio Research Tool Version 5</h1><p>Admin records questions, locks, then downloads a respondent version for GitHub sharing.</p></header><main>
-<div class="card" id="home"><h2>Select Mode</h2><div class="row"><button class="primary" onclick="showAdminLogin()">Researcher/Admin Mode</button><button class="success" onclick="showRespondent()">Respondent Mode</button></div><p class="small">Default admin password: <b>admin123</b></p><p class="status" id="homeStatus"></p></div>
-<div class="card hidden" id="adminLogin"><h2>Admin Login</h2><label>Password</label><input id="adminPass" type="password"><button class="primary" onclick="loginAdmin()">Login</button><button class="muted" onclick="home()">Back</button></div>
-<div class="hidden" id="adminPanel"><div class="card"><h2>Admin Panel</h2><p class="note" id="lockStatus"></p><label>Study Title</label><input id="studyTitle" oninput="saveState()"><label>Enumerator</label><input id="enumerator" oninput="saveState()"><label>Location</label><input id="location" oninput="saveState()"><label>New Admin Password</label><input id="newPass" type="password"><div class="row"><button class="success" onclick="changePassword()">Change Password</button><button class="danger" onclick="home()">Logout</button></div></div>
-<div class="card"><h2>Record Questions</h2><p class="small">Type a question label and optionally record audio. After locking, click <b>Download Respondent HTML</b>. Upload that downloaded file to GitHub as <b>index.html</b>.</p><label>Question Text / Label</label><input id="questionText" placeholder="Type the question here"><div class="row"><button class="primary" onclick="startQuestion()">Start Recording Audio</button><button class="danger" onclick="stopQuestion()">Stop and Save Question</button><button class="muted" onclick="saveTextQuestion()">Save Text-Only Question</button><button class="success" onclick="lockQ()">Lock Questionnaire</button><button class="muted" onclick="unlockQ()">Unlock</button></div><p class="status" id="recordStatus">Ready.</p><div id="questionList"></div></div>
-<div class="card"><h2>Publish and Export</h2><div class="row"><button class="success" onclick="downloadRespondentHtml()">Download Respondent HTML for GitHub</button><button class="primary" onclick="downloadAllCsv()">Download All Metadata CSV</button><button class="success" onclick="downloadAllAudio()">Download Audio in This Session</button><button class="danger" onclick="clearAll()">Clear All</button></div><div id="adminSummary"></div></div></div>
-<div class="hidden" id="respondentPanel"><div class="card"><h2>Respondent Mode</h2><p class="ok" id="respondentReadyMsg"></p><label>Respondent ID</label><input id="respondentId"><label>Consent Confirmed?</label><select id="consent"><option>Yes</option><option>No</option></select><label>Notes</label><textarea id="notes" rows="2"></textarea><div class="row"><button class="primary" onclick="startInterview()">Start Interview</button><button class="muted" onclick="home()">Back</button></div><p class="status" id="respondentStatus">Ready.</p></div><div class="card hidden" id="interview"><h2 id="currentTitle">Question</h2><p id="currentPrompt" class="note"></p><audio id="currentAudio" controls></audio><div class="row"><button class="muted" onclick="playQuestion()">Play Audio Question</button><button class="primary" onclick="startAnswer()">Start Recording Answer</button><button class="danger" onclick="stopAnswer()">Stop Recording</button><button class="success" onclick="saveAnswer()">Save Answer and Continue</button></div><audio id="answerPreview" controls></audio><p class="status" id="interviewStatus"></p></div><div class="card"><h2>My Export</h2><div class="row"><button class="primary" onclick="downloadMyCsv()">Download My Metadata CSV</button><button class="success" onclick="downloadMyAudio()">Download My Answer Audio</button></div><div id="mySummary"></div></div></div>
-</main><script>
-const KEY="artv5state";let adminPassword=localStorage.getItem("artv5pass")||"admin123";let questions=[],answers=[],locked=false,currentIndex=0,mediaRecorder=null,chunks=[],activeBlob=null,mode="",tempAnswer=null;
-function g(x){return document.getElementById(x)}function show(x){g(x).classList.remove("hidden")}function hide(x){g(x).classList.add("hidden")}function safe(s){return String(s||"").replace(/[&<>]/g," ")}function stamp(){return new Date().toISOString()}function fileSafe(s){return String(s||"unknown").replace(/[^a-z0-9_-]/gi,"_")}function csv(s){return '"'+String(s||"").replace(/"/g,'""').replace(/
-/g," ")+'"'}
-function blobToDataURL(blob){return new Promise(r=>{if(!blob){r(null);return}let fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob)})}
-function saveState(){let st={locked,studyTitle:g("studyTitle")?.value||"",enumerator:g("enumerator")?.value||"",location:g("location")?.value||"",questions:questions.map(q=>({id:q.id,label:q.label,fileName:q.fileName,createdAt:q.createdAt,audioData:q.audioData||null}))};localStorage.setItem(KEY,JSON.stringify(st));updateStatus()}
-function loadState(){try{let st=JSON.parse(localStorage.getItem(KEY)||"{}");locked=!!st.locked;questions=(st.questions||[]).map(q=>({...q,blob:null}));setTimeout(()=>{if(g("studyTitle"))g("studyTitle").value=st.studyTitle||"";if(g("enumerator"))g("enumerator").value=st.enumerator||"";if(g("location"))g("location").value=st.location||"";renderQuestions();summary();updateStatus()},0)}catch(e){}}
-function updateStatus(){if(g("homeStatus"))g("homeStatus").innerText="Questions: "+questions.length+" | Locked: "+(locked?"Yes":"No");if(g("lockStatus"))g("lockStatus").innerText=locked?"Questionnaire LOCKED. Respondents can answer.":"Questionnaire UNLOCKED for admin editing.";if(g("respondentReadyMsg")){g("respondentReadyMsg").innerText=locked&&questions.length?"Questionnaire is locked and ready. You cannot edit questions.":"Questionnaire is not ready. Admin must lock it first."}}
-function home(){hide("adminLogin");hide("adminPanel");hide("respondentPanel");show("home");updateStatus()}function showAdminLogin(){hide("home");show("adminLogin")}function showRespondent(){hide("home");show("respondentPanel");hide("interview");renderMySummary();updateStatus()}function loginAdmin(){if(g("adminPass").value===adminPassword){hide("adminLogin");show("adminPanel");renderQuestions();summary();updateStatus()}else alert("Wrong password")}function changePassword(){let p=g("newPass").value.trim();if(!p){alert("Enter new password");return}adminPassword=p;localStorage.setItem("artv5pass",p);g("newPass").value="";alert("Password changed")}
-function lockQ(){if(!questions.length){alert("Add questions first");return}locked=true;saveState();renderQuestions();alert("Questionnaire locked. Now click Download Respondent HTML for GitHub.")}function unlockQ(){locked=false;saveState();renderQuestions()}
-async function recStart(t){try{chunks=[];activeBlob=null;mode=t;let stream=await navigator.mediaDevices.getUserMedia({audio:true});mediaRecorder=new MediaRecorder(stream);mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data)};mediaRecorder.onstop=async()=>{activeBlob=new Blob(chunks,{type:"audio/webm"});stream.getTracks().forEach(x=>x.stop());if(mode==="answer"){tempAnswer=activeBlob;g("answerPreview").src=URL.createObjectURL(tempAnswer);g("interviewStatus").innerText="Answer recorded. Save and continue."}};mediaRecorder.start()}catch(e){alert("Allow microphone permission and try again")}}
-function recStop(){if(mediaRecorder&&mediaRecorder.state!=="inactive"){mediaRecorder.stop();return true}return false}function startQuestion(){if(locked){alert("Unlock questionnaire first");return}recStart("question");g("recordStatus").innerText="Recording audio question..."}function stopQuestion(){if(!recStop()){alert("No recording running");return}setTimeout(async()=>{await saveQuestion(activeBlob)},800)}
-async function saveQuestion(blob){let n=questions.length+1,label=g("questionText").value.trim()||"Question "+n;let audioData=await blobToDataURL(blob);questions.push({id:n,label,blob:blob||null,audioData,fileName:"question_"+n+".webm",createdAt:stamp()});g("questionText").value="";g("recordStatus").innerText="Saved "+label;activeBlob=null;renderQuestions();summary();saveState()}function saveTextQuestion(){if(locked){alert("Unlock first");return}saveQuestion(null)}
-function renderQuestions(){let h="<h3>Saved Questions <span class='badge'>"+questions.length+"</span></h3>";questions.forEach((q,i)=>{h+="<div class='item'><b>"+safe(q.label)+"</b><br><span class='small'>"+q.fileName+"</span>";let src=q.audioData||(q.blob?URL.createObjectURL(q.blob):null);if(src)h+="<audio controls src='"+src+"'></audio>";else h+="<p class='small'>Text-only question.</p>";if(!locked)h+="<button class='muted' onclick='moveQ("+i+",-1)'>Move Up</button><button class='muted' onclick='moveQ("+i+",1)'>Move Down</button><button class='danger' onclick='delQ("+i+")'>Delete</button>";else h+="<p class='small'>Locked: editing controls hidden.</p>";h+="</div>"});g("questionList").innerHTML=h;updateStatus()}function renumber(){questions.forEach((q,i)=>{q.id=i+1;q.fileName="question_"+(i+1)+".webm"})}function moveQ(i,d){let j=i+d;if(j<0||j>=questions.length)return;[questions[i],questions[j]]=[questions[j],questions[i]];renumber();renderQuestions();saveState()}function delQ(i){if(confirm("Delete question?")){questions.splice(i,1);renumber();renderQuestions();summary();saveState()}}
-function startInterview(){if(!locked){alert("Questionnaire is not ready. Ask admin to LOCK it first.");return}if(!questions.length){alert("No questions available");return}if(g("consent").value!=="Yes"){alert("Consent required");return}if(!g("respondentId").value.trim()){alert("Enter respondent ID");return}currentIndex=0;tempAnswer=null;show("interview");showCurrent()}function showCurrent(){if(currentIndex>=questions.length){g("currentTitle").innerText="Interview Complete";g("currentPrompt").innerText="All questions answered.";g("currentAudio").style.display="none";g("interviewStatus").innerText="All answers saved. Download your files.";renderMySummary();summary();return}let q=questions[currentIndex],src=q.audioData||(q.blob?URL.createObjectURL(q.blob):null);g("currentTitle").innerText=q.label+" ("+(currentIndex+1)+" of "+questions.length+")";g("currentPrompt").innerText=q.label;if(src){g("currentAudio").src=src;g("currentAudio").style.display="block"}else{g("currentAudio").style.display="none"}g("answerPreview").removeAttribute("src");tempAnswer=null;g("interviewStatus").innerText="Listen/read the question, record answer, save and continue."}function playQuestion(){if(g("currentAudio").src)g("currentAudio").play();else alert("No audio for this question. Read the question text.")}function startAnswer(){recStart("answer");g("interviewStatus").innerText="Recording answer..."}function stopAnswer(){if(!recStop())alert("No recording running")}function saveAnswer(){if(!tempAnswer){alert("Record answer first");return}let rid=fileSafe(g("respondentId").value),q=questions[currentIndex];answers.push({respondentId:rid,questionId:q.id,questionLabel:q.label,questionFileName:q.fileName,answerFileName:rid+"_answer_question_"+q.id+".webm",answerBlob:tempAnswer,timestamp:stamp(),studyTitle:g("studyTitle")?.value||"",enumerator:g("enumerator")?.value||"",location:g("location")?.value||"",consent:g("consent").value,notes:g("notes").value});currentIndex++;showCurrent()}
-function dataRows(list){let out="study_title,respondent_id,enumerator,location,consent,question_id,question_label,question_audio,answer_audio,timestamp,notes
-";list.forEach(a=>out+=csv(a.studyTitle)+","+csv(a.respondentId)+","+csv(a.enumerator)+","+csv(a.location)+","+csv(a.consent)+","+a.questionId+","+csv(a.questionLabel)+","+csv(a.questionFileName)+","+csv(a.answerFileName)+","+csv(a.timestamp)+","+csv(a.notes)+"
-");return out}function myRows(){let rid=fileSafe(g("respondentId").value);return answers.filter(a=>a.respondentId===rid)}function downloadAllCsv(){download(new Blob([dataRows(answers)],{type:"text/csv"}),"all_metadata.csv")}function downloadMyCsv(){download(new Blob([dataRows(myRows())],{type:"text/csv"}),fileSafe(g("respondentId").value)+"_metadata.csv")}function downloadAllAudio(){answers.forEach(a=>download(a.answerBlob,a.answerFileName))}function downloadMyAudio(){myRows().forEach(a=>download(a.answerBlob,a.answerFileName))}function download(blob,name){let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a)}
-function downloadRespondentHtml(){if(!locked){alert("Lock questionnaire first");return}let clone=document.documentElement.outerHTML;download(new Blob(["<!DOCTYPE html>
-"+clone],{type:"text/html"}),"index.html")}function summary(){if(g("adminSummary"))g("adminSummary").innerHTML="<p><span class='badge'>Questions: "+questions.length+"</span><span class='badge'>Answers: "+answers.length+"</span><span class='badge'>Locked: "+(locked?"Yes":"No")+"</span></p>"}function renderMySummary(){let r=myRows();if(g("mySummary"))g("mySummary").innerHTML="<p><span class='badge'>My saved answers: "+r.length+"</span></p>"}function clearAll(){if(confirm("Clear all questions and answers?")){questions=[];answers=[];locked=false;localStorage.removeItem(KEY);renderQuestions();summary();renderMySummary();saveState()}}
-loadState();home();summary();updateStatus();
-</script></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Research Tool V5.1</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}
+header{background:#173b57;color:white;text-align:center;padding:28px}
+main{max-width:1100px;margin:22px auto;padding:0 14px}
+.card{background:white;border:1px solid #d8deea;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+h2{color:#173b57;margin-top:0}
+label{font-weight:bold;display:block;margin-top:10px}
+input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;margin:6px 0 10px;font-size:15px}
+button{border:0;border-radius:8px;padding:11px 14px;margin:5px;cursor:pointer;font-size:14px}
+.primary{background:#173b57;color:white}.success{background:#1f7a3a;color:white}.danger{background:#a52727;color:white}.muted{background:#e8e8e8}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1;min-width:160px}
+.hidden{display:none}
+.item{border:1px solid #d8deea;border-radius:10px;padding:12px;margin:10px 0;background:#fafafa}
+audio{width:100%;margin:8px 0}
+.small{font-size:13px;color:#666}
+.status{font-weight:bold;color:#173b57}
+.notice{background:#fff8e5;border:1px solid #e1c46b;padding:10px;border-radius:8px}
+.good{background:#eaf8ee;border:1px solid #7ac28a;padding:10px;border-radius:8px}
+.badge{display:inline-block;background:#eef4f9;border:1px solid #cbd8e6;border-radius:14px;padding:4px 8px;margin:2px}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{border:1px solid #ddd;padding:8px;text-align:left}th{background:#eee}
+</style>
+</head>
+<body>
+<header>
+<h1>Audio Research Tool Version 5.1</h1>
+<p>Admin records questions, locks them, then respondents answer only.</p>
+</header>
+
+<main>
+<div class="card" id="homeScreen">
+<h2>Select Mode</h2>
+<div class="row">
+<button class="primary" type="button" onclick="showAdminLogin()">Researcher/Admin Mode</button>
+<button class="success" type="button" onclick="showRespondent()">Respondent Mode</button>
+</div>
+<p class="small">Default admin password: <b>admin123</b></p>
+<p class="status" id="homeStatus">Ready.</p>
+</div>
+
+<div class="card hidden" id="adminLoginScreen">
+<h2>Admin Login</h2>
+<label>Admin Password</label>
+<input id="adminPassword" type="password" placeholder="Enter admin password">
+<div class="row">
+<button class="primary" type="button" onclick="loginAdmin()">Login</button>
+<button class="muted" type="button" onclick="goHome()">Back</button>
+</div>
+</div>
+
+<div class="hidden" id="adminPanel">
+<div class="card">
+<h2>Researcher/Admin Panel</h2>
+<p class="notice" id="lockStatus">Questionnaire is not locked.</p>
+<label>Study Title</label>
+<input id="studyTitle" placeholder="Example: Employer Satisfaction Survey" oninput="saveState()">
+<label>Enumerator / Researcher</label>
+<input id="enumerator" placeholder="Optional" oninput="saveState()">
+<label>Location</label>
+<input id="location" placeholder="Optional" oninput="saveState()">
+<label>Change Admin Password</label>
+<input id="newPassword" type="password" placeholder="Optional new password">
+<div class="row">
+<button class="success" type="button" onclick="changePassword()">Save New Password</button>
+<button class="muted" type="button" onclick="goHome()">Logout</button>
+</div>
+</div>
+
+<div class="card">
+<h2>Record Questions</h2>
+<p class="small">Type a question label/text. You may also record audio. Respondents cannot edit or delete questions.</p>
+<label>Question Label/Text</label>
+<input id="questionText" placeholder="Example: What challenges do you face at work?">
+<div class="row">
+<button class="primary" type="button" onclick="saveTextQuestion()">Save Text Question</button>
+<button class="primary" type="button" onclick="startQuestionRecording()">Start Recording Audio Question</button>
+<button class="danger" type="button" onclick="stopQuestionRecording()">Stop and Save Audio Question</button>
+</div>
+<div class="row">
+<button class="success" type="button" onclick="lockQuestionnaire()">Lock Questionnaire</button>
+<button class="muted" type="button" onclick="unlockQuestionnaire()">Unlock for Editing</button>
+</div>
+<p class="status" id="recordStatus">Ready.</p>
+<div id="questionList"></div>
+</div>
+
+<div class="card">
+<h2>Admin Export</h2>
+<div class="row">
+<button class="primary" type="button" onclick="downloadAllCsv()">Download All Metadata CSV</button>
+<button class="success" type="button" onclick="downloadAllAudio()">Download Audio Files from This Session</button>
+<button class="muted" type="button" onclick="downloadQuestionnaireJson()">Download Questionnaire Backup</button>
+<button class="danger" type="button" onclick="clearAll()">Clear All</button>
+</div>
+<div id="adminSummary"></div>
+</div>
+</div>
+
+<div class="hidden" id="respondentPanel">
+<div class="card">
+<h2>Respondent Mode</h2>
+<p class="good" id="respondentReadyMsg">Checking questionnaire...</p>
+<label>Respondent ID</label>
+<input id="respondentId" placeholder="Example: R001">
+<label>Consent Confirmed?</label>
+<select id="consent"><option>Yes</option><option>No</option></select>
+<label>Notes</label>
+<textarea id="notes" rows="2" placeholder="Optional"></textarea>
+<div class="row">
+<button class="primary" type="button" onclick="startInterview()">Start Interview</button>
+<button class="muted" type="button" onclick="goHome()">Back</button>
+</div>
+<p class="status" id="respondentStatus">Ready.</p>
+</div>
+
+<div class="card hidden" id="interviewPanel">
+<h2 id="currentQuestionTitle">Question</h2>
+<p class="notice" id="currentQuestionPrompt"></p>
+<audio id="currentQuestionAudio" controls></audio>
+<div class="row">
+<button class="muted" type="button" onclick="playCurrentQuestion()">Play Audio Question</button>
+<button class="primary" type="button" onclick="startAnswerRecording()">Start Recording Answer</button>
+<button class="danger" type="button" onclick="stopAnswerRecording()">Stop Recording</button>
+<button class="success" type="button" onclick="saveAnswerAndContinue()">Save Answer and Continue</button>
+</div>
+<audio id="answerPreview" controls></audio>
+<p class="status" id="interviewStatus">Interview not started.</p>
+</div>
+
+<div class="card">
+<h2>My Export</h2>
+<div class="row">
+<button class="primary" type="button" onclick="downloadMyCsv()">Download My Metadata CSV</button>
+<button class="success" type="button" onclick="downloadMyAudio()">Download My Answer Audio</button>
+</div>
+<div id="mySummary"></div>
+</div>
+</div>
+</main>
+
+<script>
+const STATE_KEY = "audioResearchToolV51State";
+let adminPassword = localStorage.getItem("audioResearchToolV51Password") || "admin123";
+let questions = [];
+let answers = [];
+let locked = false;
+let currentIndex = 0;
+let mediaRecorder = null;
+let chunks = [];
+let currentBlob = null;
+let answerBlob = null;
+let recordingMode = "";
+
+function el(id){ return document.getElementById(id); }
+function show(id){ el(id).classList.remove("hidden"); }
+function hide(id){ el(id).classList.add("hidden"); }
+function clean(s){ return String(s || "").replace(/[&<>]/g, " "); }
+function stamp(){ return new Date().toISOString(); }
+function fileSafe(s){ return String(s || "unknown").replace(/[^a-z0-9_-]/gi, "_"); }
+function csv(s){ return '"' + String(s || "").replace(/"/g, '""').replace(/\n/g, " ") + '"'; }
+
+function goHome(){
+  hide("adminLoginScreen");
+  hide("adminPanel");
+  hide("respondentPanel");
+  show("homeScreen");
+  updateHomeStatus();
+}
+
+function showAdminLogin(){
+  hide("homeScreen");
+  hide("respondentPanel");
+  show("adminLoginScreen");
+}
+
+function showRespondent(){
+  hide("homeScreen");
+  hide("adminLoginScreen");
+  hide("adminPanel");
+  hide("interviewPanel");
+  show("respondentPanel");
+  updateRespondentReadyMessage();
+  renderMySummary();
+}
+
+function loginAdmin(){
+  if(el("adminPassword").value === adminPassword){
+    hide("adminLoginScreen");
+    show("adminPanel");
+    renderQuestions();
+    renderAdminSummary();
+    updateLockStatus();
+  } else {
+    alert("Wrong admin password.");
+  }
+}
+
+function changePassword(){
+  let p = el("newPassword").value.trim();
+  if(!p){ alert("Enter a new password first."); return; }
+  adminPassword = p;
+  localStorage.setItem("audioResearchToolV51Password", p);
+  el("newPassword").value = "";
+  alert("Admin password changed.");
+}
+
+function saveState(){
+  const state = {
+    locked,
+    studyTitle: el("studyTitle") ? el("studyTitle").value : "",
+    enumerator: el("enumerator") ? el("enumerator").value : "",
+    location: el("location") ? el("location").value : "",
+    questions: questions.map(q => ({
+      id: q.id,
+      label: q.label,
+      fileName: q.fileName,
+      createdAt: q.createdAt,
+      hasAudio: !!q.blob
+    }))
+  };
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  updateHomeStatus();
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STATE_KEY);
+    if(!raw) return;
+    const state = JSON.parse(raw);
+    locked = !!state.locked;
+    questions = (state.questions || []).map(q => ({
+      id: q.id,
+      label: q.label,
+      fileName: q.fileName,
+      createdAt: q.createdAt,
+      blob: null
+    }));
+    setTimeout(() => {
+      if(el("studyTitle")) el("studyTitle").value = state.studyTitle || "";
+      if(el("enumerator")) el("enumerator").value = state.enumerator || "";
+      if(el("location")) el("location").value = state.location || "";
+      updateLockStatus();
+      renderQuestions();
+      renderAdminSummary();
+      updateHomeStatus();
+    }, 0);
+  } catch(e){}
+}
+
+function updateHomeStatus(){
+  if(el("homeStatus")){
+    el("homeStatus").innerText = "Saved questions: " + questions.length + " | Locked: " + (locked ? "Yes" : "No");
+  }
+}
+
+function updateLockStatus(){
+  if(el("lockStatus")){
+    el("lockStatus").innerText = locked ? "Questionnaire LOCKED. Respondents can answer." : "Questionnaire UNLOCKED. Admin can edit questions.";
+  }
+  updateHomeStatus();
+}
+
+function updateRespondentReadyMessage(){
+  if(!el("respondentReadyMsg")) return;
+  if(!locked){
+    el("respondentReadyMsg").innerText = "Questionnaire is not ready. Please ask the researcher/admin to lock it first.";
+  } else if(questions.length === 0){
+    el("respondentReadyMsg").innerText = "Questionnaire is locked but there are no questions.";
+  } else {
+    el("respondentReadyMsg").innerText = "Questionnaire is locked and ready. You cannot add, edit, delete, or reorder questions.";
+  }
+}
+
+function lockQuestionnaire(){
+  if(questions.length === 0){ alert("Add at least one question first."); return; }
+  locked = true;
+  saveState();
+  updateLockStatus();
+  renderQuestions();
+  alert("Questionnaire locked. Respondents can now answer.");
+}
+
+function unlockQuestionnaire(){
+  locked = false;
+  saveState();
+  updateLockStatus();
+  renderQuestions();
+  alert("Questionnaire unlocked for admin editing.");
+}
+
+function saveTextQuestion(){
+  if(locked){ alert("Unlock questionnaire before adding questions."); return; }
+  let label = el("questionText").value.trim();
+  if(!label){ alert("Type the question text first."); return; }
+  let n = questions.length + 1;
+  questions.push({id:n, label, blob:null, fileName:"question_" + n + ".webm", createdAt:stamp()});
+  el("questionText").value = "";
+  el("recordStatus").innerText = "Saved text question " + n;
+  saveState();
+  renderQuestions();
+  renderAdminSummary();
+}
+
+async function startRecorder(mode){
+  try{
+    chunks = [];
+    currentBlob = null;
+    recordingMode = mode;
+    let stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      currentBlob = new Blob(chunks, {type:"audio/webm"});
+      stream.getTracks().forEach(t => t.stop());
+      if(recordingMode === "answer"){
+        answerBlob = currentBlob;
+        el("answerPreview").src = URL.createObjectURL(answerBlob);
+        el("interviewStatus").innerText = "Answer recorded. Click Save Answer and Continue.";
+      }
+    };
+    mediaRecorder.start();
+  } catch(e){
+    alert("Microphone permission failed. Please allow microphone access.");
+  }
+}
+
+function stopRecorder(){
+  if(mediaRecorder && mediaRecorder.state !== "inactive"){
+    mediaRecorder.stop();
+    return true;
+  }
+  return false;
+}
+
+function startQuestionRecording(){
+  if(locked){ alert("Unlock questionnaire before adding questions."); return; }
+  startRecorder("question");
+  el("recordStatus").innerText = "Recording audio question...";
+}
+
+function stopQuestionRecording(){
+  if(locked){ alert("Questionnaire is locked."); return; }
+  if(!stopRecorder()){ alert("No question recording is running."); return; }
+  setTimeout(() => {
+    if(!currentBlob){ alert("Recording not ready. Try again."); return; }
+    let n = questions.length + 1;
+    let label = el("questionText").value.trim() || "Question " + n;
+    questions.push({id:n, label, blob:currentBlob, fileName:"question_" + n + ".webm", createdAt:stamp()});
+    el("questionText").value = "";
+    currentBlob = null;
+    el("recordStatus").innerText = "Saved audio question " + n;
+    saveState();
+    renderQuestions();
+    renderAdminSummary();
+  }, 700);
+}
+
+function renderQuestions(){
+  let html = "<h3>Saved Questions <span class='badge'>" + questions.length + "</span></h3>";
+  if(questions.length === 0) html += "<p class='small'>No questions saved yet.</p>";
+  questions.forEach((q,i) => {
+    html += "<div class='item'><b>" + clean(q.label) + "</b><br><span class='small'>" + q.fileName + "</span>";
+    if(q.blob){
+      html += "<audio controls src='" + URL.createObjectURL(q.blob) + "'></audio>";
+    } else {
+      html += "<p class='small'>No audio available in this browser session; respondent will read this question text.</p>";
+    }
+    if(!locked){
+      html += "<button class='muted' type='button' onclick='moveQuestion(" + i + ",-1)'>Move Up</button>";
+      html += "<button class='muted' type='button' onclick='moveQuestion(" + i + ",1)'>Move Down</button>";
+      html += "<button class='danger' type='button' onclick='deleteQuestion(" + i + ")'>Delete</button>";
+    } else {
+      html += "<p class='small'>Locked: editing controls hidden.</p>";
+    }
+    html += "</div>";
+  });
+  el("questionList").innerHTML = html;
+}
+
+function renumberQuestions(){
+  questions.forEach((q,i) => { q.id = i+1; q.fileName = "question_" + (i+1) + ".webm"; });
+}
+
+function moveQuestion(i, dir){
+  if(locked) return;
+  let j = i + dir;
+  if(j < 0 || j >= questions.length) return;
+  [questions[i], questions[j]] = [questions[j], questions[i]];
+  renumberQuestions();
+  saveState();
+  renderQuestions();
+}
+
+function deleteQuestion(i){
+  if(locked) return;
+  if(confirm("Delete this question?")){
+    questions.splice(i,1);
+    renumberQuestions();
+    saveState();
+    renderQuestions();
+    renderAdminSummary();
+  }
+}
+
+function startInterview(){
+  updateRespondentReadyMessage();
+  if(!locked){ alert("Questionnaire is not ready. Please ask the researcher/admin to LOCK it first."); return; }
+  if(questions.length === 0){ alert("No questions available."); return; }
+  if(el("consent").value !== "Yes"){ alert("Consent is required."); return; }
+  if(!el("respondentId").value.trim()){ alert("Enter Respondent ID."); return; }
+  currentIndex = 0;
+  answerBlob = null;
+  show("interviewPanel");
+  showCurrentQuestion();
+}
+
+function showCurrentQuestion(){
+  if(currentIndex >= questions.length){
+    el("currentQuestionTitle").innerText = "Interview Complete";
+    el("currentQuestionPrompt").innerText = "All questions have been answered.";
+    el("currentQuestionAudio").removeAttribute("src");
+    el("currentQuestionAudio").style.display = "none";
+    el("interviewStatus").innerText = "All answers saved. Download your files.";
+    renderMySummary();
+    renderAdminSummary();
+    return;
+  }
+  let q = questions[currentIndex];
+  el("currentQuestionTitle").innerText = q.label + " (" + (currentIndex+1) + " of " + questions.length + ")";
+  el("currentQuestionPrompt").innerText = q.label;
+  if(q.blob){
+    el("currentQuestionAudio").src = URL.createObjectURL(q.blob);
+    el("currentQuestionAudio").style.display = "block";
+  } else {
+    el("currentQuestionAudio").removeAttribute("src");
+    el("currentQuestionAudio").style.display = "none";
+  }
+  el("answerPreview").removeAttribute("src");
+  answerBlob = null;
+  el("interviewStatus").innerText = "Read/listen to the question, record answer, save and continue.";
+}
+
+function playCurrentQuestion(){
+  if(currentIndex >= questions.length) return;
+  let q = questions[currentIndex];
+  if(!q.blob){ alert("No audio question is available in this browser session. Please read the question text shown."); return; }
+  el("currentQuestionAudio").play();
+}
+
+function startAnswerRecording(){
+  startRecorder("answer");
+  el("interviewStatus").innerText = "Recording answer...";
+}
+
+function stopAnswerRecording(){
+  if(!stopRecorder()) alert("No answer recording is running.");
+}
+
+function saveAnswerAndContinue(){
+  if(!answerBlob){ alert("Record the answer first."); return; }
+  let rid = fileSafe(el("respondentId").value);
+  let q = questions[currentIndex];
+  answers.push({
+    respondentId: rid,
+    questionId: q.id,
+    questionLabel: q.label,
+    questionFileName: q.fileName,
+    answerFileName: rid + "_answer_question_" + q.id + ".webm",
+    answerBlob,
+    timestamp: stamp(),
+    studyTitle: el("studyTitle").value,
+    enumerator: el("enumerator").value,
+    location: el("location").value,
+    consent: el("consent").value,
+    notes: el("notes").value
+  });
+  currentIndex++;
+  showCurrentQuestion();
+}
+
+function rowsToCsv(list){
+  let out = "study_title,respondent_id,enumerator,location,consent,question_id,question_label,question_audio,answer_audio,timestamp,notes\n";
+  list.forEach(a => {
+    out += csv(a.studyTitle)+","+csv(a.respondentId)+","+csv(a.enumerator)+","+csv(a.location)+","+csv(a.consent)+","+a.questionId+","+csv(a.questionLabel)+","+csv(a.questionFileName)+","+csv(a.answerFileName)+","+csv(a.timestamp)+","+csv(a.notes)+"\n";
+  });
+  return out;
+}
+
+function myRows(){
+  let rid = fileSafe(el("respondentId").value);
+  return answers.filter(a => a.respondentId === rid);
+}
+
+function downloadAllCsv(){ download(new Blob([rowsToCsv(answers)],{type:"text/csv"}), "all_metadata.csv"); }
+function downloadMyCsv(){ download(new Blob([rowsToCsv(myRows())],{type:"text/csv"}), fileSafe(el("respondentId").value) + "_metadata.csv"); }
+function downloadAllAudio(){ questions.forEach(q => { if(q.blob) download(q.blob, q.fileName); }); answers.forEach(a => download(a.answerBlob, a.answerFileName)); }
+function downloadMyAudio(){ myRows().forEach(a => download(a.answerBlob, a.answerFileName)); }
+
+function downloadQuestionnaireJson(){
+  let data = {
+    locked,
+    studyTitle: el("studyTitle").value,
+    enumerator: el("enumerator").value,
+    location: el("location").value,
+    questions: questions.map(q => ({id:q.id,label:q.label,fileName:q.fileName,createdAt:q.createdAt,hasAudio:!!q.blob}))
+  };
+  download(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}), "questionnaire_backup.json");
+}
+
+function download(blob, name){
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function renderAdminSummary(){
+  if(el("adminSummary")){
+    el("adminSummary").innerHTML = "<p><span class='badge'>Questions: " + questions.length + "</span><span class='badge'>Answers: " + answers.length + "</span><span class='badge'>Locked: " + (locked ? "Yes" : "No") + "</span></p>";
+  }
+}
+
+function renderMySummary(){
+  if(el("mySummary")){
+    let r = myRows();
+    el("mySummary").innerHTML = "<p><span class='badge'>My saved answers: " + r.length + "</span></p>";
+  }
+}
+
+function clearAll(){
+  if(confirm("Clear all questions and answers?")){
+    questions = [];
+    answers = [];
+    locked = false;
+    localStorage.removeItem(STATE_KEY);
+    updateLockStatus();
+    renderQuestions();
+    renderAdminSummary();
+    renderMySummary();
+    saveState();
+  }
+}
+
+loadState();
+goHome();
+updateLockStatus();
+renderAdminSummary();
+</script>
+</body>
+</html>
