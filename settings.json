@@ -14,5 +14,6 @@
   "enableBackupDownloads": "Yes",
   "captureEnumerator": "Yes",
   "captureDistrict": "Yes",
-  "captureGPS": "No"
+  "captureGPS": "Yes",
+  "requireGPSBeforeInterview": "No"
 }
