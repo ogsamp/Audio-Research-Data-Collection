@@ -9,7 +9,18 @@ const HEADERS = [
   "Consent","Question ID","Question Text","Question Audio",
   "Answer File","Drive URL","File ID",
   "Client Timestamp","Notes",
-  "Transcript","Code","Theme","Sample Quote","Interpretation"
+  "Transcript","Code","Theme","Auto Suggested Theme","Sample Quote","Interpretation","Researcher Review"
+];
+
+const THEME_RULES = [
+  {theme:"Practical Skills", keywords:["practice","practical","hands-on","hands on","machine","equipment","maintenance","workshop","skill","competence","doing","perform"]},
+  {theme:"ICT Competence", keywords:["computer","ict","digital","system","online","software","internet","data","technology","typing","spreadsheet"]},
+  {theme:"Industrial Attachment", keywords:["attachment","industry","workplace","company","factory","employer","supervisor","field placement","internship"]},
+  {theme:"Assessment Quality", keywords:["assessment","exam","test","marking","moderation","verification","certification","quality assurance","standard"]},
+  {theme:"Training Relevance", keywords:["curriculum","training","relevant","course","learning","module","lesson","content","trade"]},
+  {theme:"Challenges", keywords:["challenge","problem","difficulty","lack","shortage","delay","expensive","cost","limited","barrier"]},
+  {theme:"Support Needed", keywords:["support","need","recommend","improve","provide","facilitate","fund","equipment","training materials"]},
+  {theme:"Employment and Livelihoods", keywords:["job","employment","income","business","self employment","enterprise","livelihood","market"]}
 ];
 
 function getSheet_() {
@@ -76,13 +87,31 @@ function rowFromObject_(headers, obj) {
   return headers.map(h => obj[h] !== undefined ? obj[h] : "");
 }
 
+function suggestTheme_(text) {
+  const t = String(text || "").toLowerCase();
+  let best = "";
+  let bestScore = 0;
+  THEME_RULES.forEach(rule => {
+    let score = 0;
+    rule.keywords.forEach(k => {
+      if (t.indexOf(k.toLowerCase()) >= 0) score++;
+    });
+    if (score > bestScore) {
+      bestScore = score;
+      best = rule.theme;
+    }
+  });
+  return bestScore > 0 ? best : "";
+}
+
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
   try {
     const action = e && e.parameter && e.parameter.action;
     if (action === "stats") return getStats_(callback, e);
     if (action === "setupColumns") return setupThemeColumns_(callback);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V10.7 is running"}, callback);
+    if (action === "suggestThemes") return writeSuggestedThemes_(callback);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V11.0 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
@@ -91,7 +120,37 @@ function doGet(e) {
 function setupThemeColumns_(callback) {
   const sheet = getSheet_();
   const headers = ensureHeaders_(sheet);
-  return jsonOutput_({status:"success", message:"Theme analysis columns are ready", headers:headers}, callback);
+  return jsonOutput_({status:"success", message:"V11.0 qualitative analysis columns are ready", headers:headers}, callback);
+}
+
+function writeSuggestedThemes_(callback) {
+  const sheet = getSheet_();
+  const headers = ensureHeaders_(sheet);
+  const values = sheet.getDataRange().getValues();
+
+  const transcriptIdx = findColumn_(headers, ["Transcript","Transcription","Text Transcript","Response Transcript"]);
+  const autoThemeIdx = findColumn_(headers, ["Auto Suggested Theme","Suggested Theme","AI Theme"]);
+  const themeIdx = findColumn_(headers, ["Theme","Themes","Category","Finding Theme"]);
+
+  if (transcriptIdx < 0 || autoThemeIdx < 0) {
+    return jsonOutput_({status:"error", message:"Transcript or Auto Suggested Theme column not found"}, callback);
+  }
+
+  let updated = 0;
+  for (let r = 1; r < values.length; r++) {
+    const transcript = String(values[r][transcriptIdx] || "").trim();
+    if (!transcript) continue;
+    const suggested = suggestTheme_(transcript);
+    if (!suggested) continue;
+    sheet.getRange(r + 1, autoThemeIdx + 1).setValue(suggested);
+    // Do not overwrite researcher theme if it already exists.
+    if (themeIdx >= 0 && !String(values[r][themeIdx] || "").trim()) {
+      sheet.getRange(r + 1, themeIdx + 1).setValue(suggested);
+    }
+    updated++;
+  }
+
+  return jsonOutput_({status:"success", updated:updated, message:"Auto theme suggestions written"}, callback);
 }
 
 function getStats_(callback, e) {
@@ -102,7 +161,7 @@ function getStats_(callback, e) {
     return jsonOutput_({
       status:"success", respondents:0, answers:0, questions:0, completion:0,
       gpsCaptured:0, fullyAnswered:0, byQuestionsAnswered:{},
-      enumerators:0, districts:0, byEnumerator:{}, byDistrict:{}, themes:{}, invalidRowsIgnored:0
+      enumerators:0, districts:0, byEnumerator:{}, byDistrict:{}, themes:{}, suggestedThemes:{}, invalidRowsIgnored:0
     }, callback);
   }
 
@@ -118,6 +177,7 @@ function getStats_(callback, e) {
   const transcriptIdx = findColumn_(headers, ["Transcript","Transcription","Text Transcript","Response Transcript"]);
   const codeIdx       = findColumn_(headers, ["Code","Codes","Coding","Qualitative Code"]);
   const themeIdx      = findColumn_(headers, ["Theme","Themes","Category","Finding Theme"]);
+  const autoThemeIdx  = findColumn_(headers, ["Auto Suggested Theme","Suggested Theme","AI Theme"]);
   const quoteIdx      = findColumn_(headers, ["Sample Quote","Quote","Representative Quote","Illustrative Quote"]);
   const interpIdx     = findColumn_(headers, ["Interpretation","Meaning","Finding","Explanation"]);
 
@@ -127,8 +187,18 @@ function getStats_(callback, e) {
   const byEnumerator = {};
   const byDistrict = {};
   const themes = {};
+  const suggestedThemes = {};
   let answers = 0;
   let invalidRowsIgnored = 0;
+
+  function addTheme(container, key, quote, interpretation, code) {
+    if (!key) return;
+    if (!container[key]) container[key] = {mentions:0, sampleQuote:"", interpretation:"", codes:{}};
+    container[key].mentions++;
+    if (!container[key].sampleQuote) container[key].sampleQuote = quote || "";
+    if (!container[key].interpretation) container[key].interpretation = interpretation || "";
+    if (code) container[key].codes[code] = true;
+  }
 
   for (let r = 1; r < values.length; r++) {
     const row = values[r];
@@ -143,6 +213,7 @@ function getStats_(callback, e) {
     const transcript = transcriptIdx >= 0 ? String(row[transcriptIdx] || "").trim() : "";
     const code = codeIdx >= 0 ? String(row[codeIdx] || "").trim() : "";
     const theme = themeIdx >= 0 ? String(row[themeIdx] || "").trim() : "";
+    const autoTheme = autoThemeIdx >= 0 ? String(row[autoThemeIdx] || "").trim() : "";
     const quote = quoteIdx >= 0 ? String(row[quoteIdx] || "").trim() : "";
     const interpretation = interpIdx >= 0 ? String(row[interpIdx] || "").trim() : "";
 
@@ -172,26 +243,15 @@ function getStats_(callback, e) {
       byDistrict[dist][resp] = true;
     }
 
-    // Theme summary: count coded rows. Prefer Theme column; fall back to Code.
-    const themeKey = theme || code;
-    if (themeKey) {
-      if (!themes[themeKey]) {
-        themes[themeKey] = {mentions:0, sampleQuote:"", interpretation:"", codes:{}};
-      }
-      themes[themeKey].mentions++;
-      if (!themes[themeKey].sampleQuote) {
-        themes[themeKey].sampleQuote = quote || transcript.substring(0, 180);
-      }
-      if (!themes[themeKey].interpretation) {
-        themes[themeKey].interpretation = interpretation || "";
-      }
-      if (code) themes[themeKey].codes[code] = true;
-    }
+    const manualTheme = theme || code;
+    addTheme(themes, manualTheme, quote || transcript.substring(0, 180), interpretation, code);
+
+    const suggested = autoTheme || suggestTheme_(transcript);
+    addTheme(suggestedThemes, suggested, quote || transcript.substring(0, 180), "Auto-suggested from transcript keywords. Researcher validation required.", code);
   }
 
-  Object.keys(themes).forEach(k => {
-    themes[k].codes = Object.keys(themes[k].codes).join("; ");
-  });
+  Object.keys(themes).forEach(k => themes[k].codes = Object.keys(themes[k].codes).join("; "));
+  Object.keys(suggestedThemes).forEach(k => suggestedThemes[k].codes = Object.keys(suggestedThemes[k].codes).join("; "));
 
   const respondentIds = Object.keys(respondentQuestions);
   const respondentCount = respondentIds.length;
@@ -227,18 +287,8 @@ function getStats_(callback, e) {
     byEnumerator:enumCounts,
     byDistrict:districtCounts,
     themes:themes,
+    suggestedThemes:suggestedThemes,
     invalidRowsIgnored:invalidRowsIgnored,
-    detectedHeaders:{
-      respondent: respondentIdx >= 0 ? headers[respondentIdx] : "",
-      question: questionIdx >= 0 ? headers[questionIdx] : "",
-      enumerator: enumIdx >= 0 ? headers[enumIdx] : "",
-      district: districtIdx >= 0 ? headers[districtIdx] : "",
-      latitude: latIdx >= 0 ? headers[latIdx] : "",
-      longitude: longIdx >= 0 ? headers[longIdx] : "",
-      transcript: transcriptIdx >= 0 ? headers[transcriptIdx] : "",
-      code: codeIdx >= 0 ? headers[codeIdx] : "",
-      theme: themeIdx >= 0 ? headers[themeIdx] : ""
-    },
     updatedAt:new Date().toISOString()
   }, callback);
 }
@@ -289,8 +339,10 @@ function doPost(e) {
         "Transcript": "",
         "Code": "",
         "Theme": "",
+        "Auto Suggested Theme": "",
         "Sample Quote": "",
-        "Interpretation": ""
+        "Interpretation": "",
+        "Researcher Review": ""
       };
       sheet.appendRow(rowFromObject_(headers, record));
     });
