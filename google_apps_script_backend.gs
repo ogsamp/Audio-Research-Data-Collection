@@ -137,7 +137,7 @@ function doGet(e) {
     if (action === "stats") return getStats_(callback, e);
     if (action === "setupColumns") return setupColumns_(callback);
     if (action === "suggestThemes") return writeSuggestedThemes_(callback);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V12.0 is running"}, callback);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V13.0 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
@@ -146,7 +146,7 @@ function doGet(e) {
 function setupColumns_(callback) {
   const sheet = getSheet_();
   const headers = ensureHeaders_(sheet);
-  return jsonOutput_({status:"success", message:"V12.0 qualitative research columns are ready", headers:headers}, callback);
+  return jsonOutput_({status:"success", message:"V13.0 auto-transcription ready columns are ready", headers:headers}, callback);
 }
 
 function writeSuggestedThemes_(callback) {
@@ -174,9 +174,7 @@ function writeSuggestedThemes_(callback) {
     if (themeIdx >= 0 && !String(values[r][themeIdx] || "").trim()) {
       sheet.getRange(r + 1, themeIdx + 1).setValue(suggested);
     }
-    if (transcriptStatusIdx >= 0 && !String(values[r][transcriptStatusIdx] || "").trim()) {
-      sheet.getRange(r + 1, transcriptStatusIdx + 1).setValue("Transcribed");
-    }
+    if (transcriptStatusIdx >= 0) sheet.getRange(r + 1, transcriptStatusIdx + 1).setValue("Transcribed");
     if (transcriptionDateIdx >= 0 && !String(values[r][transcriptionDateIdx] || "").trim()) {
       sheet.getRange(r + 1, transcriptionDateIdx + 1).setValue(new Date());
     }
@@ -194,7 +192,8 @@ function getStats_(callback, e) {
     return jsonOutput_({
       status:"success", respondents:0, answers:0, questions:0, completion:0,
       gpsCaptured:0, fullyAnswered:0, byQuestionsAnswered:{}, enumerators:0, districts:0,
-      byEnumerator:{}, byDistrict:{}, themes:{}, suggestedThemes:{}, wordFrequency:{}, audioManifest:[], transcriptCoverage:0, invalidRowsIgnored:0
+      byEnumerator:{}, byDistrict:{}, themes:{}, suggestedThemes:{}, wordFrequency:{}, audioManifest:[],
+      transcription:{audioRecords:0, transcribed:0, pending:0, coverage:0}, invalidRowsIgnored:0
     }, callback);
   }
 
@@ -207,6 +206,7 @@ function getStats_(callback, e) {
   const longIdx       = findColumn_(headers, ["Longitude","Long","Lng","GPS Longitude","GPS Long","GPS Lng"]);
   const answerIdx     = findColumn_(headers, ["Answer File","Answer Audio","Answer","Audio Answer","Answer File Name"]);
   const driveIdx      = findColumn_(headers, ["Drive URL","Drive Link","Google Drive URL","File URL","Audio URL"]);
+  const fileIdIdx     = findColumn_(headers, ["File ID","FileID","Drive File ID"]);
   const transcriptIdx = findColumn_(headers, ["Transcript","Transcription","Text Transcript","Response Transcript"]);
   const transcriptStatusIdx = findColumn_(headers, ["Transcript Status","Transcription Status"]);
   const codeIdx       = findColumn_(headers, ["Code","Codes","Coding","Qualitative Code"]);
@@ -249,6 +249,7 @@ function getStats_(callback, e) {
     const lng = longIdx >= 0 ? String(row[longIdx] || "").trim() : "";
     const ans = answerIdx >= 0 ? String(row[answerIdx] || "").trim() : "";
     const drive = driveIdx >= 0 ? String(row[driveIdx] || "").trim() : "";
+    const fileId = fileIdIdx >= 0 ? String(row[fileIdIdx] || "").trim() : "";
     const transcript = transcriptIdx >= 0 ? String(row[transcriptIdx] || "").trim() : "";
     const transcriptStatus = transcriptStatusIdx >= 0 ? String(row[transcriptStatusIdx] || "").trim() : "";
     const code = codeIdx >= 0 ? String(row[codeIdx] || "").trim() : "";
@@ -294,6 +295,7 @@ function getStats_(callback, e) {
       questionText:qText,
       answerFile:ans,
       driveUrl:drive,
+      fileId:fileId,
       transcriptStatus: transcript ? "Transcribed" : (transcriptStatus || "Pending")
     });
 
@@ -344,7 +346,12 @@ function getStats_(callback, e) {
     suggestedThemes:suggestedThemes,
     wordFrequency:sortedFrequency_(wordFrequency),
     audioManifest:audioManifest,
-    transcriptCoverage: answers ? Math.round((transcripts / answers) * 100) : 0,
+    transcription:{
+      audioRecords:answers,
+      transcribed:transcripts,
+      pending:Math.max(answers - transcripts, 0),
+      coverage: answers ? Math.round((transcripts / answers) * 100) : 0
+    },
     invalidRowsIgnored:invalidRowsIgnored,
     updatedAt:new Date().toISOString()
   }, callback);
