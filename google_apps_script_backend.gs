@@ -5,39 +5,46 @@ function getSheet_() {
   return SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
 }
 
+function jsonOutput_(obj, callback) {
+  const json = JSON.stringify(obj);
+  if (callback) {
+    return ContentService
+      .createTextOutput(callback + "(" + json + ");")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService
+    .createTextOutput(json)
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doGet(e) {
+  const callback = e && e.parameter && e.parameter.callback;
   try {
     const action = e && e.parameter && e.parameter.action;
     if (action === "stats") {
-      return getStats_();
+      return getStats_(callback);
     }
-    return ContentService
-      .createTextOutput(JSON.stringify({status:"success", message:"Audio Research Backend V10.2 is running"}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V10.3 is running"}, callback);
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({status:"error", message:String(err)}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOutput_({status:"error", message:String(err)}, callback);
   }
 }
 
-function getStats_() {
+function getStats_(callback) {
   const sheet = getSheet_();
   const values = sheet.getDataRange().getValues();
 
   if (values.length < 2) {
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        status:"success",
-        respondents:0,
-        answers:0,
-        questions:0,
-        completion:0,
-        gpsCaptured:0,
-        byEnumerator:{},
-        byDistrict:{}
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOutput_({
+      status:"success",
+      respondents:0,
+      answers:0,
+      questions:0,
+      completion:0,
+      gpsCaptured:0,
+      byEnumerator:{},
+      byDistrict:{}
+    }, callback);
   }
 
   const headers = values[0].map(String);
@@ -80,19 +87,17 @@ function getStats_() {
   const expected = respondentCount * questionCount;
   const completion = expected ? Math.round((answers / expected) * 100) : 0;
 
-  return ContentService
-    .createTextOutput(JSON.stringify({
-      status:"success",
-      respondents:respondentCount,
-      answers:answers,
-      questions:questionCount,
-      completion:completion,
-      gpsCaptured:gpsCaptured,
-      byEnumerator:byEnumerator,
-      byDistrict:byDistrict,
-      updatedAt:new Date().toISOString()
-    }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return jsonOutput_({
+    status:"success",
+    respondents:respondentCount,
+    answers:answers,
+    questions:questionCount,
+    completion:completion,
+    gpsCaptured:gpsCaptured,
+    byEnumerator:byEnumerator,
+    byDistrict:byDistrict,
+    updatedAt:new Date().toISOString()
+  }, callback);
 }
 
 function doPost(e) {
@@ -150,13 +155,8 @@ function doPost(e) {
       ]);
     });
 
-    return ContentService
-      .createTextOutput(JSON.stringify({status:"success", rows:(data.metadata || []).length}))
-      .setMimeType(ContentService.MimeType.JSON);
-
+    return jsonOutput_({status:"success", rows:(data.metadata || []).length}, null);
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({status:"error", message:String(err)}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOutput_({status:"error", message:String(err)}, null);
   }
 }
