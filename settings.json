@@ -1,1 +1,14 @@
-
+{
+  "projectId": "AR-2026-001",
+  "projectTitle": "Audio Research Data Collection",
+  "institution": "Your Institution",
+  "researcherName": "Researcher Name",
+  "researcherContact": "researcher@example.com",
+  "surveyTitle": "Audio Research Data Collection",
+  "surveyDescription": "Please listen to each question and record your answer.",
+  "submitUrl": "PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE",
+  "closingDate": "2026-06-30T23:59",
+  "requireConsent": "Yes",
+  "allowAfterClose": "No",
+  "researcherPin": "1234"
+}
