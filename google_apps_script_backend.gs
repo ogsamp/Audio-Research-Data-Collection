@@ -1,6 +1,16 @@
 const SHEET_ID = "1R-cjiNMoNWv-BhokRXeeBCmHtssr4-LMQwYGTd39g-0";
 const FOLDER_ID = "13lzW_JzwCiLaYXDGWV77Muo90FjNV5au";
 
+const HEADERS = [
+  "Submitted At","Started At","Duration Seconds",
+  "Project ID","Project Title","Institution","Researcher","Researcher Contact","Survey Title",
+  "Respondent ID","Enumerator ID","District",
+  "Latitude","Longitude","GPS Accuracy","GPS Timestamp",
+  "Consent","Question ID","Question Text","Question Audio",
+  "Answer File","Drive URL","File ID",
+  "Client Timestamp","Notes"
+];
+
 function getSheet_() {
   return SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
 }
@@ -8,7 +18,8 @@ function getSheet_() {
 function jsonOutput_(obj, callback) {
   const json = JSON.stringify(obj);
   if (callback) {
-    return ContentService.createTextOutput(callback + "(" + json + ");").setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput(callback + "(" + json + ");")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
@@ -33,41 +44,80 @@ function findColumn_(headers, possibleNames) {
   return -1;
 }
 
+function ensureHeaders_(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS);
+    return HEADERS.slice();
+  }
+  let lastCol = Math.max(sheet.getLastColumn(), HEADERS.length);
+  let headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  const norm = headers.map(normalize_);
+  const hasRespondent = norm.indexOf(normalize_("Respondent ID")) >= 0;
+  const hasQuestion = norm.indexOf(normalize_("Question ID")) >= 0;
+  if (!headers.join("").trim() || !hasRespondent || !hasQuestion) {
+    sheet.insertRowBefore(1);
+    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+    return HEADERS.slice();
+  }
+  HEADERS.forEach(h => {
+    if (norm.indexOf(normalize_(h)) < 0) {
+      headers.push(h);
+      sheet.getRange(1, headers.length).setValue(h);
+      norm.push(normalize_(h));
+    }
+  });
+  return headers;
+}
+
+function rowFromObject_(headers, obj) {
+  return headers.map(h => obj[h] !== undefined ? obj[h] : "");
+}
+
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
   try {
     const action = e && e.parameter && e.parameter.action;
-    if (action === "stats") return getStats_(callback);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V10.4 is running"}, callback);
+    if (action === "stats") return getStats_(callback, e);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V10.6 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
 }
 
-function getStats_(callback) {
+function getStats_(callback, e) {
   const sheet = getSheet_();
   const values = sheet.getDataRange().getValues();
+
   if (values.length < 2) {
-    return jsonOutput_({status:"success", respondents:0, answers:0, questions:0, completion:0, gpsCaptured:0, enumerators:0, districts:0, byEnumerator:{}, byDistrict:{}}, callback);
+    return jsonOutput_({
+      status:"success", respondents:0, answers:0, questions:0, completion:0,
+      gpsCaptured:0, fullyAnswered:0, byQuestionsAnswered:{},
+      enumerators:0, districts:0, byEnumerator:{}, byDistrict:{}, invalidRowsIgnored:0
+    }, callback);
   }
 
   const headers = values[0].map(String);
   const respondentIdx = findColumn_(headers, ["Respondent ID","RespondentID","Respondent","Participant ID","ParticipantID","Interviewee ID"]);
-  const questionIdx = findColumn_(headers, ["Question ID","QuestionID","Question No","Question Number","QID"]);
-  const enumIdx = findColumn_(headers, ["Enumerator ID","EnumeratorID","Enumerator","Interviewer ID","Interviewer","Field Officer"]);
-  const districtIdx = findColumn_(headers, ["District","District / Location","District Location","Location","Area","Site","Region"]);
-  const latIdx = findColumn_(headers, ["Latitude","Lat","GPS Latitude","GPS Lat"]);
-  const longIdx = findColumn_(headers, ["Longitude","Long","Lng","GPS Longitude","GPS Long","GPS Lng"]);
-  const answerIdx = findColumn_(headers, ["Answer File","Answer Audio","Answer","Audio Answer","Answer File Name"]);
-  const driveIdx = findColumn_(headers, ["Drive URL","Drive Link","Google Drive URL","File URL","Audio URL"]);
+  const questionIdx   = findColumn_(headers, ["Question ID","QuestionID","Question No","Question Number","QID"]);
+  const enumIdx       = findColumn_(headers, ["Enumerator ID","EnumeratorID","Enumerator","Interviewer ID","Interviewer","Field Officer"]);
+  const districtIdx   = findColumn_(headers, ["District","District / Location","District Location","Location","Area","Site","Region"]);
+  const latIdx        = findColumn_(headers, ["Latitude","Lat","GPS Latitude","GPS Lat"]);
+  const longIdx       = findColumn_(headers, ["Longitude","Long","Lng","GPS Longitude","GPS Long","GPS Lng"]);
+  const answerIdx     = findColumn_(headers, ["Answer File","Answer Audio","Answer","Audio Answer","Answer File Name"]);
+  const driveIdx      = findColumn_(headers, ["Drive URL","Drive Link","Google Drive URL","File URL","Audio URL"]);
 
-  const respondents = {}, questions = {}, byEnumerator = {}, byDistrict = {};
-  let answers = 0, gpsCaptured = 0;
+  const expectedQuestions = Number((e && e.parameter && e.parameter.expectedQuestions) || 0);
+  const respondentQuestions = {};
+  const respondentHasGps = {};
+  const byEnumerator = {};
+  const byDistrict = {};
+  let answers = 0;
+  let invalidRowsIgnored = 0;
 
   for (let r = 1; r < values.length; r++) {
     const row = values[r];
     const resp = respondentIdx >= 0 ? String(row[respondentIdx] || "").trim() : "";
-    const q = questionIdx >= 0 ? String(row[questionIdx] || "").trim() : "";
+    const qRaw = questionIdx >= 0 ? String(row[questionIdx] || "").trim() : "";
     const en = enumIdx >= 0 ? String(row[enumIdx] || "").trim() : "";
     const dist = districtIdx >= 0 ? String(row[districtIdx] || "").trim() : "";
     const lat = latIdx >= 0 ? String(row[latIdx] || "").trim() : "";
@@ -75,18 +125,53 @@ function getStats_(callback) {
     const ans = answerIdx >= 0 ? String(row[answerIdx] || "").trim() : "";
     const drive = driveIdx >= 0 ? String(row[driveIdx] || "").trim() : "";
 
-    if (resp) respondents[resp] = true;
-    if (q) questions[q] = true;
-    if ((resp && q) || ans || drive) answers++;
-    if (lat || lng) gpsCaptured++;
-    if (en) byEnumerator[en] = (byEnumerator[en] || 0) + 1;
-    if (dist) byDistrict[dist] = (byDistrict[dist] || 0) + 1;
+    const match = qRaw.match(/\d+/);
+    const qNum = match ? Number(match[0]) : 0;
+    const validQuestionRange = qNum > 0 && (!expectedQuestions || qNum <= expectedQuestions);
+    const hasAnswerEvidence = !!(ans || drive);
+    const valid = !!resp && validQuestionRange && hasAnswerEvidence;
+
+    if (!valid) {
+      invalidRowsIgnored++;
+      continue;
+    }
+
+    if (!respondentQuestions[resp]) respondentQuestions[resp] = {};
+    respondentQuestions[resp][qNum] = true;
+    answers++;
+
+    if (lat || lng) respondentHasGps[resp] = true;
+
+    // Count enumerator/district per respondent, not per answer.
+    if (en) {
+      if (!byEnumerator[en]) byEnumerator[en] = {};
+      byEnumerator[en][resp] = true;
+    }
+    if (dist) {
+      if (!byDistrict[dist]) byDistrict[dist] = {};
+      byDistrict[dist][resp] = true;
+    }
   }
 
-  const respondentCount = Object.keys(respondents).length;
-  const questionCount = Object.keys(questions).length;
+  const respondentIds = Object.keys(respondentQuestions);
+  const respondentCount = respondentIds.length;
+  const questionCount = expectedQuestions || Math.max.apply(null, respondentIds.map(id => Object.keys(respondentQuestions[id]).length).concat([0]));
   const expected = respondentCount * questionCount;
   const completion = expected ? Math.round((answers / expected) * 100) : 0;
+
+  let fullyAnswered = 0;
+  const byQuestionsAnswered = {};
+  respondentIds.forEach(id => {
+    const count = Object.keys(respondentQuestions[id]).length;
+    byQuestionsAnswered[count + " of " + questionCount] = (byQuestionsAnswered[count + " of " + questionCount] || 0) + 1;
+    if (count >= questionCount) fullyAnswered++;
+  });
+
+  const enumCounts = {};
+  Object.keys(byEnumerator).forEach(k => enumCounts[k] = Object.keys(byEnumerator[k]).length);
+
+  const districtCounts = {};
+  Object.keys(byDistrict).forEach(k => districtCounts[k] = Object.keys(byDistrict[k]).length);
 
   return jsonOutput_({
     status:"success",
@@ -94,11 +179,14 @@ function getStats_(callback) {
     answers:answers,
     questions:questionCount,
     completion:completion,
-    gpsCaptured:gpsCaptured,
-    enumerators:Object.keys(byEnumerator).length,
-    districts:Object.keys(byDistrict).length,
-    byEnumerator:byEnumerator,
-    byDistrict:byDistrict,
+    gpsCaptured:Object.keys(respondentHasGps).length,
+    fullyAnswered:fullyAnswered,
+    byQuestionsAnswered:byQuestionsAnswered,
+    enumerators:Object.keys(enumCounts).length,
+    districts:Object.keys(districtCounts).length,
+    byEnumerator:enumCounts,
+    byDistrict:districtCounts,
+    invalidRowsIgnored:invalidRowsIgnored,
     detectedHeaders:{
       respondent: respondentIdx >= 0 ? headers[respondentIdx] : "",
       question: questionIdx >= 0 ? headers[questionIdx] : "",
@@ -116,14 +204,7 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     const folder = DriveApp.getFolderById(FOLDER_ID);
     const sheet = getSheet_();
-
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        "Submitted At","Started At","Duration Seconds","Project ID","Project Title","Institution","Researcher","Researcher Contact","Survey Title",
-        "Respondent ID","Enumerator ID","District","Latitude","Longitude","GPS Accuracy","GPS Timestamp","Consent","Question ID","Question Text",
-        "Question Audio","Answer File","Drive URL","File ID","Client Timestamp","Notes"
-      ]);
-    }
+    const headers = ensureHeaders_(sheet);
 
     const fileMap = {};
     (data.files || []).forEach(file => {
@@ -135,13 +216,34 @@ function doPost(e) {
 
     (data.metadata || []).forEach(row => {
       const f = fileMap[row.answerFileName] || {};
-      sheet.appendRow([
-        data.submittedAt, data.startedAt || "", data.durationSeconds || "", data.projectId || "", data.projectTitle || "", data.institution || "",
-        data.researcherName || "", data.researcherContact || "", data.surveyTitle || "", data.respondentId || "", data.enumeratorId || row.enumeratorId || "",
-        data.district || row.district || "", data.latitude || row.latitude || "", data.longitude || row.longitude || "", data.gpsAccuracy || row.gpsAccuracy || "",
-        data.gpsTimestamp || row.gpsTimestamp || "", data.consent || "", row.questionId, row.questionText, row.questionAudio, row.answerFileName,
-        f.url || "", f.id || "", row.timestamp, data.notes || row.notes || ""
-      ]);
+      const record = {
+        "Submitted At": data.submittedAt || "",
+        "Started At": data.startedAt || "",
+        "Duration Seconds": data.durationSeconds || "",
+        "Project ID": data.projectId || "",
+        "Project Title": data.projectTitle || "",
+        "Institution": data.institution || "",
+        "Researcher": data.researcherName || "",
+        "Researcher Contact": data.researcherContact || "",
+        "Survey Title": data.surveyTitle || "",
+        "Respondent ID": data.respondentId || row.respondentId || "",
+        "Enumerator ID": data.enumeratorId || row.enumeratorId || "",
+        "District": data.district || row.district || "",
+        "Latitude": data.latitude || row.latitude || "",
+        "Longitude": data.longitude || row.longitude || "",
+        "GPS Accuracy": data.gpsAccuracy || row.gpsAccuracy || "",
+        "GPS Timestamp": data.gpsTimestamp || row.gpsTimestamp || "",
+        "Consent": data.consent || "",
+        "Question ID": row.questionId || "",
+        "Question Text": row.questionText || "",
+        "Question Audio": row.questionAudio || "",
+        "Answer File": row.answerFileName || "",
+        "Drive URL": f.url || "",
+        "File ID": f.id || "",
+        "Client Timestamp": row.timestamp || "",
+        "Notes": data.notes || row.notes || ""
+      };
+      sheet.appendRow(rowFromObject_(headers, record));
     });
 
     return jsonOutput_({status:"success", rows:(data.metadata || []).length}, null);
