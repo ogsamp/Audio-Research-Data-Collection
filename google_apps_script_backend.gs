@@ -1,11 +1,105 @@
 const SHEET_ID = "PASTE_YOUR_GOOGLE_SHEET_ID_HERE";
 const FOLDER_ID = "PASTE_YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE";
 
+function getSheet_() {
+  return SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+}
+
+function doGet(e) {
+  try {
+    const action = e && e.parameter && e.parameter.action;
+    if (action === "stats") {
+      return getStats_();
+    }
+    return ContentService
+      .createTextOutput(JSON.stringify({status:"success", message:"Audio Research Backend V10.2 is running"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({status:"error", message:String(err)}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function getStats_() {
+  const sheet = getSheet_();
+  const values = sheet.getDataRange().getValues();
+
+  if (values.length < 2) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status:"success",
+        respondents:0,
+        answers:0,
+        questions:0,
+        completion:0,
+        gpsCaptured:0,
+        byEnumerator:{},
+        byDistrict:{}
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const headers = values[0].map(String);
+  function idx(name) { return headers.indexOf(name); }
+
+  const respondentIdx = idx("Respondent ID");
+  const questionIdx = idx("Question ID");
+  const enumIdx = idx("Enumerator ID");
+  const districtIdx = idx("District");
+  const latIdx = idx("Latitude");
+  const longIdx = idx("Longitude");
+
+  const respondents = {};
+  const questions = {};
+  const byEnumerator = {};
+  const byDistrict = {};
+  let answers = 0;
+  let gpsCaptured = 0;
+
+  for (let r = 1; r < values.length; r++) {
+    const row = values[r];
+    const resp = respondentIdx >= 0 ? String(row[respondentIdx] || "").trim() : "";
+    const q = questionIdx >= 0 ? String(row[questionIdx] || "").trim() : "";
+    const en = enumIdx >= 0 ? String(row[enumIdx] || "").trim() : "";
+    const dist = districtIdx >= 0 ? String(row[districtIdx] || "").trim() : "";
+    const lat = latIdx >= 0 ? String(row[latIdx] || "").trim() : "";
+    const lng = longIdx >= 0 ? String(row[longIdx] || "").trim() : "";
+
+    if (resp) respondents[resp] = true;
+    if (q) questions[q] = true;
+    if (resp && q) answers++;
+    if (lat || lng) gpsCaptured++;
+
+    if (en) byEnumerator[en] = (byEnumerator[en] || 0) + 1;
+    if (dist) byDistrict[dist] = (byDistrict[dist] || 0) + 1;
+  }
+
+  const respondentCount = Object.keys(respondents).length;
+  const questionCount = Object.keys(questions).length;
+  const expected = respondentCount * questionCount;
+  const completion = expected ? Math.round((answers / expected) * 100) : 0;
+
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      status:"success",
+      respondents:respondentCount,
+      answers:answers,
+      questions:questionCount,
+      completion:completion,
+      gpsCaptured:gpsCaptured,
+      byEnumerator:byEnumerator,
+      byDistrict:byDistrict,
+      updatedAt:new Date().toISOString()
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const folder = DriveApp.getFolderById(FOLDER_ID);
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+    const sheet = getSheet_();
 
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
@@ -59,6 +153,7 @@ function doPost(e) {
     return ContentService
       .createTextOutput(JSON.stringify({status:"success", rows:(data.metadata || []).length}))
       .setMimeType(ContentService.MimeType.JSON);
+
   } catch (err) {
     return ContentService
       .createTextOutput(JSON.stringify({status:"error", message:String(err)}))
