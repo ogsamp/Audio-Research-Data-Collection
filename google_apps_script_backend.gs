@@ -8,7 +8,8 @@ const HEADERS = [
   "Latitude","Longitude","GPS Accuracy","GPS Timestamp",
   "Consent","Question ID","Question Text","Question Audio",
   "Answer File","Drive URL","File ID",
-  "Client Timestamp","Notes"
+  "Client Timestamp","Notes",
+  "Transcript","Code","Theme","Sample Quote","Interpretation"
 ];
 
 function getSheet_() {
@@ -54,11 +55,13 @@ function ensureHeaders_(sheet) {
   const norm = headers.map(normalize_);
   const hasRespondent = norm.indexOf(normalize_("Respondent ID")) >= 0;
   const hasQuestion = norm.indexOf(normalize_("Question ID")) >= 0;
+
   if (!headers.join("").trim() || !hasRespondent || !hasQuestion) {
     sheet.insertRowBefore(1);
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     return HEADERS.slice();
   }
+
   HEADERS.forEach(h => {
     if (norm.indexOf(normalize_(h)) < 0) {
       headers.push(h);
@@ -78,10 +81,17 @@ function doGet(e) {
   try {
     const action = e && e.parameter && e.parameter.action;
     if (action === "stats") return getStats_(callback, e);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V10.6 is running"}, callback);
+    if (action === "setupColumns") return setupThemeColumns_(callback);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V10.7 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
+}
+
+function setupThemeColumns_(callback) {
+  const sheet = getSheet_();
+  const headers = ensureHeaders_(sheet);
+  return jsonOutput_({status:"success", message:"Theme analysis columns are ready", headers:headers}, callback);
 }
 
 function getStats_(callback, e) {
@@ -92,7 +102,7 @@ function getStats_(callback, e) {
     return jsonOutput_({
       status:"success", respondents:0, answers:0, questions:0, completion:0,
       gpsCaptured:0, fullyAnswered:0, byQuestionsAnswered:{},
-      enumerators:0, districts:0, byEnumerator:{}, byDistrict:{}, invalidRowsIgnored:0
+      enumerators:0, districts:0, byEnumerator:{}, byDistrict:{}, themes:{}, invalidRowsIgnored:0
     }, callback);
   }
 
@@ -105,12 +115,18 @@ function getStats_(callback, e) {
   const longIdx       = findColumn_(headers, ["Longitude","Long","Lng","GPS Longitude","GPS Long","GPS Lng"]);
   const answerIdx     = findColumn_(headers, ["Answer File","Answer Audio","Answer","Audio Answer","Answer File Name"]);
   const driveIdx      = findColumn_(headers, ["Drive URL","Drive Link","Google Drive URL","File URL","Audio URL"]);
+  const transcriptIdx = findColumn_(headers, ["Transcript","Transcription","Text Transcript","Response Transcript"]);
+  const codeIdx       = findColumn_(headers, ["Code","Codes","Coding","Qualitative Code"]);
+  const themeIdx      = findColumn_(headers, ["Theme","Themes","Category","Finding Theme"]);
+  const quoteIdx      = findColumn_(headers, ["Sample Quote","Quote","Representative Quote","Illustrative Quote"]);
+  const interpIdx     = findColumn_(headers, ["Interpretation","Meaning","Finding","Explanation"]);
 
   const expectedQuestions = Number((e && e.parameter && e.parameter.expectedQuestions) || 0);
   const respondentQuestions = {};
   const respondentHasGps = {};
   const byEnumerator = {};
   const byDistrict = {};
+  const themes = {};
   let answers = 0;
   let invalidRowsIgnored = 0;
 
@@ -124,6 +140,11 @@ function getStats_(callback, e) {
     const lng = longIdx >= 0 ? String(row[longIdx] || "").trim() : "";
     const ans = answerIdx >= 0 ? String(row[answerIdx] || "").trim() : "";
     const drive = driveIdx >= 0 ? String(row[driveIdx] || "").trim() : "";
+    const transcript = transcriptIdx >= 0 ? String(row[transcriptIdx] || "").trim() : "";
+    const code = codeIdx >= 0 ? String(row[codeIdx] || "").trim() : "";
+    const theme = themeIdx >= 0 ? String(row[themeIdx] || "").trim() : "";
+    const quote = quoteIdx >= 0 ? String(row[quoteIdx] || "").trim() : "";
+    const interpretation = interpIdx >= 0 ? String(row[interpIdx] || "").trim() : "";
 
     const match = qRaw.match(/\d+/);
     const qNum = match ? Number(match[0]) : 0;
@@ -142,7 +163,6 @@ function getStats_(callback, e) {
 
     if (lat || lng) respondentHasGps[resp] = true;
 
-    // Count enumerator/district per respondent, not per answer.
     if (en) {
       if (!byEnumerator[en]) byEnumerator[en] = {};
       byEnumerator[en][resp] = true;
@@ -151,7 +171,27 @@ function getStats_(callback, e) {
       if (!byDistrict[dist]) byDistrict[dist] = {};
       byDistrict[dist][resp] = true;
     }
+
+    // Theme summary: count coded rows. Prefer Theme column; fall back to Code.
+    const themeKey = theme || code;
+    if (themeKey) {
+      if (!themes[themeKey]) {
+        themes[themeKey] = {mentions:0, sampleQuote:"", interpretation:"", codes:{}};
+      }
+      themes[themeKey].mentions++;
+      if (!themes[themeKey].sampleQuote) {
+        themes[themeKey].sampleQuote = quote || transcript.substring(0, 180);
+      }
+      if (!themes[themeKey].interpretation) {
+        themes[themeKey].interpretation = interpretation || "";
+      }
+      if (code) themes[themeKey].codes[code] = true;
+    }
   }
+
+  Object.keys(themes).forEach(k => {
+    themes[k].codes = Object.keys(themes[k].codes).join("; ");
+  });
 
   const respondentIds = Object.keys(respondentQuestions);
   const respondentCount = respondentIds.length;
@@ -186,6 +226,7 @@ function getStats_(callback, e) {
     districts:Object.keys(districtCounts).length,
     byEnumerator:enumCounts,
     byDistrict:districtCounts,
+    themes:themes,
     invalidRowsIgnored:invalidRowsIgnored,
     detectedHeaders:{
       respondent: respondentIdx >= 0 ? headers[respondentIdx] : "",
@@ -193,7 +234,10 @@ function getStats_(callback, e) {
       enumerator: enumIdx >= 0 ? headers[enumIdx] : "",
       district: districtIdx >= 0 ? headers[districtIdx] : "",
       latitude: latIdx >= 0 ? headers[latIdx] : "",
-      longitude: longIdx >= 0 ? headers[longIdx] : ""
+      longitude: longIdx >= 0 ? headers[longIdx] : "",
+      transcript: transcriptIdx >= 0 ? headers[transcriptIdx] : "",
+      code: codeIdx >= 0 ? headers[codeIdx] : "",
+      theme: themeIdx >= 0 ? headers[themeIdx] : ""
     },
     updatedAt:new Date().toISOString()
   }, callback);
@@ -241,7 +285,12 @@ function doPost(e) {
         "Drive URL": f.url || "",
         "File ID": f.id || "",
         "Client Timestamp": row.timestamp || "",
-        "Notes": data.notes || row.notes || ""
+        "Notes": data.notes || row.notes || "",
+        "Transcript": "",
+        "Code": "",
+        "Theme": "",
+        "Sample Quote": "",
+        "Interpretation": ""
       };
       sheet.appendRow(rowFromObject_(headers, record));
     });
