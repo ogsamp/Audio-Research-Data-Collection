@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio Research Tool V8.3 Professional Research Edition</title>
+<title>Audio Research Tool V8.3.1.1 Professional Research Edition</title>
 <style>
 body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}
 header{background:#173b57;color:white;text-align:center;padding:24px}
@@ -25,7 +25,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid 
 .nav button{min-width:180px}.small{font-size:13px;color:#666}
 </style></head>
 <body>
-<header><h1 id="pageTitle">Audio Research Tool V8.3</h1><p id="pageSubtitle">Professional audio research data collection and analysis support platform.</p></header>
+<header><h1 id="pageTitle">Audio Research Tool V8.3.1</h1><p id="pageSubtitle">Professional audio research data collection and analysis support platform.</p></header>
 <div class="nav" id="navBar">
 <button class="success" onclick="openTab('respondentTab')">Respondent Interview</button>
 <button class="primary adminOnly" onclick="showResearcherLogin()">Researcher Access</button>
@@ -48,25 +48,26 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid 
 <div id="readinessBox" class="notice">Checking readiness...</div>
 
 <h3>Project Information</h3>
-<label>Project ID</label><input id="projectId" placeholder="Example: UVTAB-AR-2026-001" oninput="saveSettings()">
-<label>Project Title</label><input id="projectTitle" placeholder="Example: TVET Assessment Quality Study" oninput="saveSettings()">
-<label>Institution / Organisation</label><input id="institution" placeholder="Example: UVTAB" oninput="saveSettings()">
-<label>Principal Researcher</label><input id="researcherName" placeholder="Researcher name" oninput="saveSettings()">
-<label>Researcher Contact</label><input id="researcherContact" placeholder="Email or phone" oninput="saveSettings()">
+<label>Project ID</label><input id="projectId" placeholder="Example: UVTAB-AR-2026-001" oninput="saveSettings(false)">
+<label>Project Title</label><input id="projectTitle" placeholder="Example: TVET Assessment Quality Study" oninput="saveSettings(false)">
+<label>Institution / Organisation</label><input id="institution" placeholder="Example: UVTAB" oninput="saveSettings(false)">
+<label>Principal Researcher</label><input id="researcherName" placeholder="Researcher name" oninput="saveSettings(false)">
+<label>Researcher Contact</label><input id="researcherContact" placeholder="Email or phone" oninput="saveSettings(false)">
 
 <h3>Survey Settings</h3>
-<label>Survey Title</label><input id="surveyTitle" value="Audio Research Data Collection" oninput="saveSettings()">
-<label>Survey Description</label><textarea id="surveyDescription" rows="2" oninput="saveSettings()">Please listen to each question and record your answer.</textarea>
-<label>Submission Web App URL <span style="color:red">*</span></label><input id="submitUrl" placeholder="Google Apps Script Web App URL" oninput="saveSettings()">
-<label>Closing Date and Time</label><input id="closingDate" type="datetime-local" oninput="saveSettings()">
-<label>Require Consent?</label><select id="requireConsent" onchange="saveSettings()"><option>Yes</option><option>No</option></select>
-<label>Allow Submission After Closing Date?</label><select id="allowAfterClose" onchange="saveSettings()"><option>No</option><option>Yes</option></select>
+<label>Survey Title</label><input id="surveyTitle" value="Audio Research Data Collection" oninput="saveSettings(false)">
+<label>Survey Description</label><textarea id="surveyDescription" rows="2" oninput="saveSettings(false)">Please listen to each question and record your answer.</textarea>
+<label>Submission Web App URL <span style="color:red">*</span></label><input id="submitUrl" placeholder="Google Apps Script Web App URL" oninput="saveSettings(false)">
+<label>Closing Date and Time</label><input id="closingDate" type="datetime-local" oninput="saveSettings(false)">
+<label>Require Consent?</label><select id="requireConsent" onchange="saveSettings(false)"><option>Yes</option><option>No</option></select>
+<label>Allow Submission After Closing Date?</label><select id="allowAfterClose" onchange="saveSettings(false)"><option>No</option><option>Yes</option></select>
 <label>Change Researcher PIN</label><input id="newPin" type="password" placeholder="Optional new PIN">
 <div class="row">
-<button class="success" onclick="saveSettings()">Save Settings</button>
+<button class="success" onclick="saveSettings(true)">Save Settings</button>
 <button class="primary" onclick="changePin()">Change PIN</button>
-<button class="muted" onclick="openTab('respondentTab')">Launch Respondent View</button>
+<button class="muted" onclick="saveSettings(false);openTab('respondentTab')">Launch Respondent View</button>
 </div>
+<p class="status" id="saveStatus">Settings not yet saved in this session.</p>
 </div>
 
 <div class="card">
@@ -144,9 +145,19 @@ function showResearcherLogin(){openTab('researcherLoginTab')}
 function loginResearcher(){const saved=localStorage.getItem(PIN_KEY)||"1234";if(el("researcherPinInput").value===saved){openTab("researcherTab");el("researcherPinInput").value=""}else alert("Wrong researcher PIN.")}
 function changePin(){const p=el("newPin").value.trim();if(!p){alert("Enter new PIN.");return}localStorage.setItem(PIN_KEY,p);el("newPin").value="";alert("Researcher PIN changed.")}
 function hasSubmitUrl(){return !!el("submitUrl").value.trim()}
-function saveSettings(){const ids=["projectId","projectTitle","institution","researcherName","researcherContact","surveyTitle","surveyDescription","submitUrl","closingDate","requireConsent","allowAfterClose"];let s={};ids.forEach(id=>s[id]=el(id).value);localStorage.setItem(KEY,JSON.stringify(s));applySettings()}
+function saveSettings(showAlert){
+const ids=["projectId","projectTitle","institution","researcherName","researcherContact","surveyTitle","surveyDescription","submitUrl","closingDate","requireConsent","allowAfterClose"];
+let s={};
+ids.forEach(id=>s[id]=el(id).value);
+localStorage.setItem(KEY,JSON.stringify(s));
+applySettings();
+if(el("saveStatus")){
+ el("saveStatus").innerText="Settings saved successfully at "+new Date().toLocaleTimeString()+".";
+}
+if(showAlert){alert("Settings saved successfully.");}
+}
 function loadSettings(){try{const s=JSON.parse(localStorage.getItem(KEY)||"{}");Object.keys(s).forEach(k=>{if(el(k))el(k).value=s[k]})}catch(e){}applySettings()}
-function applySettings(){el("pageTitle").innerText=el("surveyTitle").value||"Audio Research Tool V8.3";el("pageSubtitle").innerText=el("surveyDescription").value||"";el("consentLabel").style.display=el("requireConsent").value==="Yes"?"block":"none";el("consent").style.display=el("requireConsent").value==="Yes"?"block":"none";checkSurveyStatus();renderDashboard();renderReadiness()}
+function applySettings(){el("pageTitle").innerText=el("surveyTitle").value||"Audio Research Tool V8.3.1";el("pageSubtitle").innerText=el("surveyDescription").value||"";el("consentLabel").style.display=el("requireConsent").value==="Yes"?"block":"none";el("consent").style.display=el("requireConsent").value==="Yes"?"block":"none";checkSurveyStatus();renderDashboard();renderReadiness()}
 function isClosed(){const c=el("closingDate").value;if(!c)return false;return new Date()>new Date(c)}
 function isReady(){return questions.length>0 && hasSubmitUrl() && !(isClosed()&&el("allowAfterClose").value==="No")}
 function renderReadiness(){if(!el("readinessBox"))return;let msgs=[];msgs.push((questions.length>0?"✓":"✗")+" Questions loaded: "+questions.length);msgs.push((hasSubmitUrl()?"✓":"✗")+" Submission URL configured");msgs.push((isClosed()?"✗ Survey closed":"✓ Survey open"));msgs.push((el("projectId").value?"✓":"!")+" Project ID: "+(el("projectId").value||"not set"));const ready=isReady();el("readinessBox").className=ready?"good":"bad";el("readinessBox").innerHTML="<b>Survey Status: "+(ready?"READY FOR RESPONDENTS":"NOT READY")+"</b><br>"+msgs.join("<br>")}
