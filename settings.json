@@ -1,14 +1,16 @@
 {
-  "projectId": "UVTAB001.6.26",
-  "projectTitle": "DEVELOPMENT OF AUDIO RESEARCH DATA COLLECTION TOOL",
-  "institution": "UVTAB",
-  "researcherName": "SAM P. OGWANG",
-  "researcherContact": "0779922658",
-  "surveyTitle": "TESTING THE ONLINE AUDIO RESEARCH DATA COLLECTION TOOL",
-  "surveyDescription": "PLAY EACH QUESTION AND RECORD YOUR ANSWER",
-  "submitUrl": "https://script.google.com/macros/s/AKfycbxy8_LYAY4rVFgLNE_PZC_4gVFE-oEZZh57dCI92SGOtmK7GOBMn11RGbUQ66_VuOM/exec",
-  "closingDate": "2026-06-30T12:15",
+  "projectId": "AR-2026-001",
+  "projectTitle": "Audio Research Data Collection",
+  "institution": "Your Institution",
+  "researcherName": "Researcher Name",
+  "researcherContact": "researcher@example.com",
+  "surveyTitle": "Audio Research Data Collection",
+  "surveyDescription": "Please listen to each question and record your answer.",
+  "submitUrl": "PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE",
+  "closingDate": "2026-06-30T23:59",
   "requireConsent": "Yes",
   "allowAfterClose": "No",
-  "researcherPin": ""
+  "researcherPin": "1234",
+  "enableBackupDownloads": "Yes",
+  "enableAnalysisGuide": "Yes"
 }
