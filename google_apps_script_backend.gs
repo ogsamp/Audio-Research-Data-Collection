@@ -9,7 +9,8 @@ const HEADERS = [
   "Consent","Question ID","Question Text","Question Audio",
   "Answer File","Drive URL","File ID",
   "Client Timestamp","Notes",
-  "Transcript","Code","Theme","Auto Suggested Theme","Sample Quote","Interpretation","Researcher Review"
+  "Transcript","Transcript Status","Transcribed By","Transcription Date",
+  "Code","Theme","Auto Suggested Theme","Sample Quote","Interpretation","Researcher Review"
 ];
 
 const THEME_RULES = [
@@ -20,8 +21,19 @@ const THEME_RULES = [
   {theme:"Training Relevance", keywords:["curriculum","training","relevant","course","learning","module","lesson","content","trade"]},
   {theme:"Challenges", keywords:["challenge","problem","difficulty","lack","shortage","delay","expensive","cost","limited","barrier"]},
   {theme:"Support Needed", keywords:["support","need","recommend","improve","provide","facilitate","fund","equipment","training materials"]},
-  {theme:"Employment and Livelihoods", keywords:["job","employment","income","business","self employment","enterprise","livelihood","market"]}
+  {theme:"Employment and Livelihoods", keywords:["job","employment","income","business","self employment","enterprise","livelihood","market"]},
+  {theme:"Access and Inclusion", keywords:["access","inclusion","gender","disability","youth","rural","equity","opportunity","marginalized"]},
+  {theme:"Quality Assurance", keywords:["quality","assurance","monitoring","audit","standard","compliance","verification","improvement"]}
 ];
+
+const STOP_WORDS = {
+  "the":true,"and":true,"for":true,"that":true,"this":true,"with":true,"have":true,"has":true,"was":true,"were":true,"are":true,"from":true,
+  "you":true,"your":true,"they":true,"their":true,"them":true,"our":true,"ours":true,"but":true,"not":true,"can":true,"will":true,
+  "had":true,"been":true,"into":true,"about":true,"also":true,"very":true,"there":true,"here":true,"when":true,"what":true,"which":true,
+  "then":true,"than":true,"because":true,"would":true,"could":true,"should":true,"these":true,"those":true,"each":true,"where":true,
+  "how":true,"why":true,"who":true,"his":true,"her":true,"him":true,"she":true,"he":true,"it":true,"is":true,"to":true,"of":true,
+  "in":true,"on":true,"a":true,"an":true,"as":true,"by":true,"or":true,"at":true,"we":true,"i":true,"my":true
+};
 
 function getSheet_() {
   return SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
@@ -104,23 +116,37 @@ function suggestTheme_(text) {
   return bestScore > 0 ? best : "";
 }
 
+function addWords_(freq, text) {
+  const words = String(text || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/);
+  words.forEach(w => {
+    if (!w || w.length < 3 || STOP_WORDS[w]) return;
+    freq[w] = (freq[w] || 0) + 1;
+  });
+}
+
+function sortedFrequency_(freq) {
+  const out = {};
+  Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,100).forEach(([k,v]) => out[k]=v);
+  return out;
+}
+
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
   try {
     const action = e && e.parameter && e.parameter.action;
     if (action === "stats") return getStats_(callback, e);
-    if (action === "setupColumns") return setupThemeColumns_(callback);
+    if (action === "setupColumns") return setupColumns_(callback);
     if (action === "suggestThemes") return writeSuggestedThemes_(callback);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V11.0 is running"}, callback);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V12.0 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
 }
 
-function setupThemeColumns_(callback) {
+function setupColumns_(callback) {
   const sheet = getSheet_();
   const headers = ensureHeaders_(sheet);
-  return jsonOutput_({status:"success", message:"V11.0 qualitative analysis columns are ready", headers:headers}, callback);
+  return jsonOutput_({status:"success", message:"V12.0 qualitative research columns are ready", headers:headers}, callback);
 }
 
 function writeSuggestedThemes_(callback) {
@@ -131,6 +157,8 @@ function writeSuggestedThemes_(callback) {
   const transcriptIdx = findColumn_(headers, ["Transcript","Transcription","Text Transcript","Response Transcript"]);
   const autoThemeIdx = findColumn_(headers, ["Auto Suggested Theme","Suggested Theme","AI Theme"]);
   const themeIdx = findColumn_(headers, ["Theme","Themes","Category","Finding Theme"]);
+  const transcriptStatusIdx = findColumn_(headers, ["Transcript Status","Transcription Status"]);
+  const transcriptionDateIdx = findColumn_(headers, ["Transcription Date"]);
 
   if (transcriptIdx < 0 || autoThemeIdx < 0) {
     return jsonOutput_({status:"error", message:"Transcript or Auto Suggested Theme column not found"}, callback);
@@ -143,9 +171,14 @@ function writeSuggestedThemes_(callback) {
     const suggested = suggestTheme_(transcript);
     if (!suggested) continue;
     sheet.getRange(r + 1, autoThemeIdx + 1).setValue(suggested);
-    // Do not overwrite researcher theme if it already exists.
     if (themeIdx >= 0 && !String(values[r][themeIdx] || "").trim()) {
       sheet.getRange(r + 1, themeIdx + 1).setValue(suggested);
+    }
+    if (transcriptStatusIdx >= 0 && !String(values[r][transcriptStatusIdx] || "").trim()) {
+      sheet.getRange(r + 1, transcriptStatusIdx + 1).setValue("Transcribed");
+    }
+    if (transcriptionDateIdx >= 0 && !String(values[r][transcriptionDateIdx] || "").trim()) {
+      sheet.getRange(r + 1, transcriptionDateIdx + 1).setValue(new Date());
     }
     updated++;
   }
@@ -160,8 +193,8 @@ function getStats_(callback, e) {
   if (values.length < 2) {
     return jsonOutput_({
       status:"success", respondents:0, answers:0, questions:0, completion:0,
-      gpsCaptured:0, fullyAnswered:0, byQuestionsAnswered:{},
-      enumerators:0, districts:0, byEnumerator:{}, byDistrict:{}, themes:{}, suggestedThemes:{}, invalidRowsIgnored:0
+      gpsCaptured:0, fullyAnswered:0, byQuestionsAnswered:{}, enumerators:0, districts:0,
+      byEnumerator:{}, byDistrict:{}, themes:{}, suggestedThemes:{}, wordFrequency:{}, audioManifest:[], transcriptCoverage:0, invalidRowsIgnored:0
     }, callback);
   }
 
@@ -175,11 +208,13 @@ function getStats_(callback, e) {
   const answerIdx     = findColumn_(headers, ["Answer File","Answer Audio","Answer","Audio Answer","Answer File Name"]);
   const driveIdx      = findColumn_(headers, ["Drive URL","Drive Link","Google Drive URL","File URL","Audio URL"]);
   const transcriptIdx = findColumn_(headers, ["Transcript","Transcription","Text Transcript","Response Transcript"]);
+  const transcriptStatusIdx = findColumn_(headers, ["Transcript Status","Transcription Status"]);
   const codeIdx       = findColumn_(headers, ["Code","Codes","Coding","Qualitative Code"]);
   const themeIdx      = findColumn_(headers, ["Theme","Themes","Category","Finding Theme"]);
   const autoThemeIdx  = findColumn_(headers, ["Auto Suggested Theme","Suggested Theme","AI Theme"]);
   const quoteIdx      = findColumn_(headers, ["Sample Quote","Quote","Representative Quote","Illustrative Quote"]);
   const interpIdx     = findColumn_(headers, ["Interpretation","Meaning","Finding","Explanation"]);
+  const qTextIdx      = findColumn_(headers, ["Question Text","Question"]);
 
   const expectedQuestions = Number((e && e.parameter && e.parameter.expectedQuestions) || 0);
   const respondentQuestions = {};
@@ -188,7 +223,10 @@ function getStats_(callback, e) {
   const byDistrict = {};
   const themes = {};
   const suggestedThemes = {};
+  const wordFrequency = {};
+  const audioManifest = [];
   let answers = 0;
+  let transcripts = 0;
   let invalidRowsIgnored = 0;
 
   function addTheme(container, key, quote, interpretation, code) {
@@ -204,6 +242,7 @@ function getStats_(callback, e) {
     const row = values[r];
     const resp = respondentIdx >= 0 ? String(row[respondentIdx] || "").trim() : "";
     const qRaw = questionIdx >= 0 ? String(row[questionIdx] || "").trim() : "";
+    const qText = qTextIdx >= 0 ? String(row[qTextIdx] || "").trim() : "";
     const en = enumIdx >= 0 ? String(row[enumIdx] || "").trim() : "";
     const dist = districtIdx >= 0 ? String(row[districtIdx] || "").trim() : "";
     const lat = latIdx >= 0 ? String(row[latIdx] || "").trim() : "";
@@ -211,6 +250,7 @@ function getStats_(callback, e) {
     const ans = answerIdx >= 0 ? String(row[answerIdx] || "").trim() : "";
     const drive = driveIdx >= 0 ? String(row[driveIdx] || "").trim() : "";
     const transcript = transcriptIdx >= 0 ? String(row[transcriptIdx] || "").trim() : "";
+    const transcriptStatus = transcriptStatusIdx >= 0 ? String(row[transcriptStatusIdx] || "").trim() : "";
     const code = codeIdx >= 0 ? String(row[codeIdx] || "").trim() : "";
     const theme = themeIdx >= 0 ? String(row[themeIdx] || "").trim() : "";
     const autoTheme = autoThemeIdx >= 0 ? String(row[autoThemeIdx] || "").trim() : "";
@@ -242,6 +282,20 @@ function getStats_(callback, e) {
       if (!byDistrict[dist]) byDistrict[dist] = {};
       byDistrict[dist][resp] = true;
     }
+
+    if (transcript) {
+      transcripts++;
+      addWords_(wordFrequency, transcript);
+    }
+
+    audioManifest.push({
+      respondentId:resp,
+      questionId:qNum,
+      questionText:qText,
+      answerFile:ans,
+      driveUrl:drive,
+      transcriptStatus: transcript ? "Transcribed" : (transcriptStatus || "Pending")
+    });
 
     const manualTheme = theme || code;
     addTheme(themes, manualTheme, quote || transcript.substring(0, 180), interpretation, code);
@@ -288,6 +342,9 @@ function getStats_(callback, e) {
     byDistrict:districtCounts,
     themes:themes,
     suggestedThemes:suggestedThemes,
+    wordFrequency:sortedFrequency_(wordFrequency),
+    audioManifest:audioManifest,
+    transcriptCoverage: answers ? Math.round((transcripts / answers) * 100) : 0,
     invalidRowsIgnored:invalidRowsIgnored,
     updatedAt:new Date().toISOString()
   }, callback);
@@ -337,6 +394,9 @@ function doPost(e) {
         "Client Timestamp": row.timestamp || "",
         "Notes": data.notes || row.notes || "",
         "Transcript": "",
+        "Transcript Status": "Pending",
+        "Transcribed By": "",
+        "Transcription Date": "",
         "Code": "",
         "Theme": "",
         "Auto Suggested Theme": "",
