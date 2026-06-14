@@ -1,5 +1,5 @@
-const SHEET_ID = "PASTE_YOUR_GOOGLE_SHEET_ID_HERE";
-const FOLDER_ID = "PASTE_YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE";
+const SHEET_ID = "1R-cjiNMoNWv-BhokRXeeBCmHtssr4-LMQwYGTd39g-0/edit?gid=0#gid=0";
+const FOLDER_ID = "13lzW_JzwCiLaYXDGWV77Muo90FjNV5au";
 
 function getSheet_() {
   return SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
