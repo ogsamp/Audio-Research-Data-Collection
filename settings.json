@@ -1,9 +1,9 @@
 {
-  "projectId": "AR-2026-001",
-  "projectTitle": "Audio Research Data Collection",
-  "institution": "Your Institution",
-  "researcherName": "Researcher Name",
-  "researcherContact": "researcher@example.com",
+  "projectId": "UVTAB001.6.26",
+  "projectTitle": "DEVELOPMENT OF AUDIO RESEARCH DATA COLLECTION TOOL",
+  "institution": "UVTAB",
+  "researcherName": "Sam Patrick Ogwang",
+  "researcherContact": "ogsamp@gmail.com",
   "surveyTitle": "Audio Research Data Collection",
   "surveyDescription": "Please listen to each question and record your answer.",
   "submitUrl": "PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE",
@@ -12,5 +12,7 @@
   "allowAfterClose": "No",
   "researcherPin": "1234",
   "enableBackupDownloads": "Yes",
-  "enableAnalysisGuide": "Yes"
+  "captureEnumerator": "Yes",
+  "captureDistrict": "Yes",
+  "captureGPS": "No"
 }
