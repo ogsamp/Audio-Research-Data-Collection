@@ -1,4 +1,4 @@
-const SHEET_ID = "1R-cjiNMoNWv-BhokRXeeBCmHtssr4-LMQwYGTd39g-0/edit?gid=0#gid=0";
+const SHEET_ID = "1R-cjiNMoNWv-BhokRXeeBCmHtssr4-LMQwYGTd39g-0";
 const FOLDER_ID = "13lzW_JzwCiLaYXDGWV77Muo90FjNV5au";
 
 function getSheet_() {
