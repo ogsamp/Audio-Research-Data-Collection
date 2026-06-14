@@ -14,16 +14,18 @@ const HEADERS = [
 ];
 
 const THEME_RULES = [
-  {theme:"Practical Skills", keywords:["practice","practical","hands-on","hands on","machine","equipment","maintenance","workshop","skill","competence","doing","perform"]},
-  {theme:"ICT Competence", keywords:["computer","ict","digital","system","online","software","internet","data","technology","typing","spreadsheet"]},
+  {theme:"Practical Skills", keywords:["practice","practical","hands-on","hands on","machine","equipment","maintenance","workshop","skill","skills","competence","doing","perform"]},
+  {theme:"ICT Competence", keywords:["computer","ict","digital","system","online","software","internet","data","technology","typing","spreadsheet","database"]},
   {theme:"Industrial Attachment", keywords:["attachment","industry","workplace","company","factory","employer","supervisor","field placement","internship"]},
   {theme:"Assessment Quality", keywords:["assessment","exam","test","marking","moderation","verification","certification","quality assurance","standard"]},
   {theme:"Training Relevance", keywords:["curriculum","training","relevant","course","learning","module","lesson","content","trade"]},
-  {theme:"Challenges", keywords:["challenge","problem","difficulty","lack","shortage","delay","expensive","cost","limited","barrier"]},
-  {theme:"Support Needed", keywords:["support","need","recommend","improve","provide","facilitate","fund","equipment","training materials"]},
+  {theme:"Challenges", keywords:["challenge","challenges","problem","difficulty","lack","shortage","delay","expensive","cost","limited","barrier"]},
+  {theme:"Support Needed", keywords:["support","need","needs","recommend","improve","provide","facilitate","fund","equipment","training materials"]},
   {theme:"Employment and Livelihoods", keywords:["job","employment","income","business","self employment","enterprise","livelihood","market"]},
   {theme:"Access and Inclusion", keywords:["access","inclusion","gender","disability","youth","rural","equity","opportunity","marginalized"]},
-  {theme:"Quality Assurance", keywords:["quality","assurance","monitoring","audit","standard","compliance","verification","improvement"]}
+  {theme:"Quality Assurance", keywords:["quality","assurance","monitoring","audit","standard","compliance","verification","improvement"]},
+  {theme:"Soft Skills", keywords:["communication","teamwork","discipline","attitude","confidence","leadership","customer care","time management"]},
+  {theme:"Resources and Equipment", keywords:["tools","equipment","materials","machines","workshop","laboratory","facility","facilities","resources"]}
 ];
 
 const STOP_WORDS = {
@@ -99,21 +101,18 @@ function rowFromObject_(headers, obj) {
   return headers.map(h => obj[h] !== undefined ? obj[h] : "");
 }
 
-function suggestTheme_(text) {
+function suggestThemes_(text) {
   const t = String(text || "").toLowerCase();
-  let best = "";
-  let bestScore = 0;
+  const found = [];
   THEME_RULES.forEach(rule => {
     let score = 0;
     rule.keywords.forEach(k => {
       if (t.indexOf(k.toLowerCase()) >= 0) score++;
     });
-    if (score > bestScore) {
-      bestScore = score;
-      best = rule.theme;
-    }
+    if (score > 0) found.push({theme:rule.theme, score:score});
   });
-  return bestScore > 0 ? best : "";
+  found.sort((a,b)=>b.score-a.score);
+  return found.slice(0,3).map(x=>x.theme);
 }
 
 function addWords_(freq, text) {
@@ -130,6 +129,10 @@ function sortedFrequency_(freq) {
   return out;
 }
 
+function splitThemes_(s) {
+  return String(s || "").split(/[;,|]/).map(x=>x.trim()).filter(Boolean);
+}
+
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
   try {
@@ -137,7 +140,7 @@ function doGet(e) {
     if (action === "stats") return getStats_(callback, e);
     if (action === "setupColumns") return setupColumns_(callback);
     if (action === "suggestThemes") return writeSuggestedThemes_(callback);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V13.0 is running"}, callback);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V14.0 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
@@ -146,7 +149,7 @@ function doGet(e) {
 function setupColumns_(callback) {
   const sheet = getSheet_();
   const headers = ensureHeaders_(sheet);
-  return jsonOutput_({status:"success", message:"V13.0 auto-transcription ready columns are ready", headers:headers}, callback);
+  return jsonOutput_({status:"success", message:"V14.0 advanced qualitative analysis columns are ready", headers:headers}, callback);
 }
 
 function writeSuggestedThemes_(callback) {
@@ -168,11 +171,12 @@ function writeSuggestedThemes_(callback) {
   for (let r = 1; r < values.length; r++) {
     const transcript = String(values[r][transcriptIdx] || "").trim();
     if (!transcript) continue;
-    const suggested = suggestTheme_(transcript);
-    if (!suggested) continue;
-    sheet.getRange(r + 1, autoThemeIdx + 1).setValue(suggested);
+    const suggestions = suggestThemes_(transcript);
+    if (!suggestions.length) continue;
+    const suggestedText = suggestions.join("; ");
+    sheet.getRange(r + 1, autoThemeIdx + 1).setValue(suggestedText);
     if (themeIdx >= 0 && !String(values[r][themeIdx] || "").trim()) {
-      sheet.getRange(r + 1, themeIdx + 1).setValue(suggested);
+      sheet.getRange(r + 1, themeIdx + 1).setValue(suggestedText);
     }
     if (transcriptStatusIdx >= 0) sheet.getRange(r + 1, transcriptStatusIdx + 1).setValue("Transcribed");
     if (transcriptionDateIdx >= 0 && !String(values[r][transcriptionDateIdx] || "").trim()) {
@@ -181,7 +185,7 @@ function writeSuggestedThemes_(callback) {
     updated++;
   }
 
-  return jsonOutput_({status:"success", updated:updated, message:"Auto theme suggestions written"}, callback);
+  return jsonOutput_({status:"success", updated:updated, message:"Multi-theme suggestions written"}, callback);
 }
 
 function getStats_(callback, e) {
@@ -192,7 +196,7 @@ function getStats_(callback, e) {
     return jsonOutput_({
       status:"success", respondents:0, answers:0, questions:0, completion:0,
       gpsCaptured:0, fullyAnswered:0, byQuestionsAnswered:{}, enumerators:0, districts:0,
-      byEnumerator:{}, byDistrict:{}, themes:{}, suggestedThemes:{}, wordFrequency:{}, audioManifest:[],
+      byEnumerator:{}, byDistrict:{}, themes:{}, suggestedThemes:{}, themeMatrix:{}, wordFrequency:{}, audioManifest:[],
       transcription:{audioRecords:0, transcribed:0, pending:0, coverage:0}, invalidRowsIgnored:0
     }, callback);
   }
@@ -223,6 +227,7 @@ function getStats_(callback, e) {
   const byDistrict = {};
   const themes = {};
   const suggestedThemes = {};
+  const themeMatrix = {};
   const wordFrequency = {};
   const audioManifest = [];
   let answers = 0;
@@ -236,6 +241,15 @@ function getStats_(callback, e) {
     if (!container[key].sampleQuote) container[key].sampleQuote = quote || "";
     if (!container[key].interpretation) container[key].interpretation = interpretation || "";
     if (code) container[key].codes[code] = true;
+  }
+
+  function addMatrix(theme, resp, qNum, code) {
+    if (!theme) return;
+    if (!themeMatrix[theme]) themeMatrix[theme] = {mentions:0, respondents:{}, questions:{}, codes:{}};
+    themeMatrix[theme].mentions++;
+    if (resp) themeMatrix[theme].respondents[resp] = true;
+    if (qNum) themeMatrix[theme].questions[qNum] = true;
+    if (code) themeMatrix[theme].codes[code] = true;
   }
 
   for (let r = 1; r < values.length; r++) {
@@ -299,15 +313,32 @@ function getStats_(callback, e) {
       transcriptStatus: transcript ? "Transcribed" : (transcriptStatus || "Pending")
     });
 
-    const manualTheme = theme || code;
-    addTheme(themes, manualTheme, quote || transcript.substring(0, 180), interpretation, code);
+    const manualThemes = splitThemes_(theme || code);
+    manualThemes.forEach(t => {
+      addTheme(themes, t, quote || transcript.substring(0, 180), interpretation, code);
+      addMatrix(t, resp, qNum, code);
+    });
 
-    const suggested = autoTheme || suggestTheme_(transcript);
-    addTheme(suggestedThemes, suggested, quote || transcript.substring(0, 180), "Auto-suggested from transcript keywords. Researcher validation required.", code);
+    const autoThemes = splitThemes_(autoTheme);
+    const suggestions = autoThemes.length ? autoThemes : suggestThemes_(transcript);
+    suggestions.forEach(t => {
+      addTheme(suggestedThemes, t, quote || transcript.substring(0, 180), "Auto-suggested from transcript keywords. Researcher validation required.", code);
+      addMatrix(t, resp, qNum, code);
+    });
   }
 
   Object.keys(themes).forEach(k => themes[k].codes = Object.keys(themes[k].codes).join("; "));
   Object.keys(suggestedThemes).forEach(k => suggestedThemes[k].codes = Object.keys(suggestedThemes[k].codes).join("; "));
+
+  const flatMatrix = {};
+  Object.keys(themeMatrix).forEach(k => {
+    flatMatrix[k] = {
+      mentions: themeMatrix[k].mentions,
+      respondents: Object.keys(themeMatrix[k].respondents).length,
+      questions: Object.keys(themeMatrix[k].questions).length,
+      codes: Object.keys(themeMatrix[k].codes).join("; ")
+    };
+  });
 
   const respondentIds = Object.keys(respondentQuestions);
   const respondentCount = respondentIds.length;
@@ -344,6 +375,7 @@ function getStats_(callback, e) {
     byDistrict:districtCounts,
     themes:themes,
     suggestedThemes:suggestedThemes,
+    themeMatrix:flatMatrix,
     wordFrequency:sortedFrequency_(wordFrequency),
     audioManifest:audioManifest,
     transcription:{
