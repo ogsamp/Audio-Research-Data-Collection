@@ -8,7 +8,13 @@ function doPost(e) {
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
 
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["Submitted At","Respondent ID","Consent","Question ID","Question Text","Question Audio","Answer File","Drive URL","File ID","Client Timestamp","Notes"]);
+      sheet.appendRow([
+        "Submitted At","Started At","Duration Seconds",
+        "Project ID","Project Title","Institution","Researcher","Researcher Contact","Survey Title",
+        "Respondent ID","Enumerator ID","District","Latitude","Longitude","GPS Accuracy","GPS Timestamp",
+        "Consent","Question ID","Question Text","Question Audio","Answer File","Drive URL","File ID",
+        "Client Timestamp","Notes"
+      ]);
     }
 
     const fileMap = {};
@@ -21,11 +27,41 @@ function doPost(e) {
 
     (data.metadata || []).forEach(row => {
       const f = fileMap[row.answerFileName] || {};
-      sheet.appendRow([data.submittedAt, data.respondentId, data.consent, row.questionId, row.questionText, row.questionAudio, row.answerFileName, f.url || "", f.id || "", row.timestamp, data.notes || row.notes || ""]);
+      sheet.appendRow([
+        data.submittedAt,
+        data.startedAt || "",
+        data.durationSeconds || "",
+        data.projectId || "",
+        data.projectTitle || "",
+        data.institution || "",
+        data.researcherName || "",
+        data.researcherContact || "",
+        data.surveyTitle || "",
+        data.respondentId || "",
+        data.enumeratorId || row.enumeratorId || "",
+        data.district || row.district || "",
+        data.latitude || row.latitude || "",
+        data.longitude || row.longitude || "",
+        data.gpsAccuracy || row.gpsAccuracy || "",
+        data.gpsTimestamp || row.gpsTimestamp || "",
+        data.consent || "",
+        row.questionId,
+        row.questionText,
+        row.questionAudio,
+        row.answerFileName,
+        f.url || "",
+        f.id || "",
+        row.timestamp,
+        data.notes || row.notes || ""
+      ]);
     });
 
-    return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);
+    return ContentService
+      .createTextOutput(JSON.stringify({status:"success", rows:(data.metadata || []).length}))
+      .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({status:"error", message:String(err)})).setMimeType(ContentService.MimeType.JSON);
+    return ContentService
+      .createTextOutput(JSON.stringify({status:"error", message:String(err)}))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
