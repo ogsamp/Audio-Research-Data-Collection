@@ -140,7 +140,7 @@ function doGet(e) {
     if (action === "stats") return getStats_(callback, e);
     if (action === "setupColumns") return setupColumns_(callback);
     if (action === "suggestThemes") return writeSuggestedThemes_(callback);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V14.0 is running"}, callback);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V15.0 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
@@ -149,7 +149,7 @@ function doGet(e) {
 function setupColumns_(callback) {
   const sheet = getSheet_();
   const headers = ensureHeaders_(sheet);
-  return jsonOutput_({status:"success", message:"V14.0 advanced qualitative analysis columns are ready", headers:headers}, callback);
+  return jsonOutput_({status:"success", message:"V15.0 GPS map and advanced qualitative analysis columns are ready", headers:headers}, callback);
 }
 
 function writeSuggestedThemes_(callback) {
@@ -219,6 +219,9 @@ function getStats_(callback, e) {
   const quoteIdx      = findColumn_(headers, ["Sample Quote","Quote","Representative Quote","Illustrative Quote"]);
   const interpIdx     = findColumn_(headers, ["Interpretation","Meaning","Finding","Explanation"]);
   const qTextIdx      = findColumn_(headers, ["Question Text","Question"]);
+  const gpsAccIdx     = findColumn_(headers, ["GPS Accuracy","Accuracy","GPSAccuracy"]);
+  const gpsTimeIdx    = findColumn_(headers, ["GPS Timestamp","Location Timestamp","GPSTimestamp"]);
+  const submittedIdx  = findColumn_(headers, ["Submitted At","SubmittedAt","Timestamp"]);
 
   const expectedQuestions = Number((e && e.parameter && e.parameter.expectedQuestions) || 0);
   const respondentQuestions = {};
@@ -230,6 +233,7 @@ function getStats_(callback, e) {
   const themeMatrix = {};
   const wordFrequency = {};
   const audioManifest = [];
+  const gpsByRespondent = {};
   let answers = 0;
   let transcripts = 0;
   let invalidRowsIgnored = 0;
@@ -287,7 +291,22 @@ function getStats_(callback, e) {
     respondentQuestions[resp][qNum] = true;
     answers++;
 
-    if (lat || lng) respondentHasGps[resp] = true;
+    if (lat || lng) {
+      respondentHasGps[resp] = true;
+      if (!gpsByRespondent[resp]) {
+        gpsByRespondent[resp] = {
+          respondentId:resp,
+          enumerator:en,
+          district:dist,
+          latitude:lat,
+          longitude:lng,
+          gpsAccuracy:gpsAccIdx >= 0 ? String(row[gpsAccIdx] || "") : "",
+          gpsTimestamp:gpsTimeIdx >= 0 ? String(row[gpsTimeIdx] || "") : "",
+          submittedAt:submittedIdx >= 0 ? String(row[submittedIdx] || "") : "",
+          questionsAnswered:0
+        };
+      }
+    }
 
     if (en) {
       if (!byEnumerator[en]) byEnumerator[en] = {};
@@ -354,6 +373,10 @@ function getStats_(callback, e) {
     if (count >= questionCount) fullyAnswered++;
   });
 
+  Object.keys(gpsByRespondent).forEach(id => {
+    gpsByRespondent[id].questionsAnswered = respondentQuestions[id] ? Object.keys(respondentQuestions[id]).length : 0;
+  });
+
   const enumCounts = {};
   Object.keys(byEnumerator).forEach(k => enumCounts[k] = Object.keys(byEnumerator[k]).length);
 
@@ -378,6 +401,7 @@ function getStats_(callback, e) {
     themeMatrix:flatMatrix,
     wordFrequency:sortedFrequency_(wordFrequency),
     audioManifest:audioManifest,
+    gpsRecords:Object.values(gpsByRespondent),
     transcription:{
       audioRecords:answers,
       transcribed:transcripts,
