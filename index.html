@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio Research Tool V16.2</title>
+<title>Audio Research Tool V16.3</title>
 <style>
 body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}header{background:#173b57;color:white;text-align:center;padding:24px}main{max-width:1180px;margin:22px auto;padding:0 14px}.card{background:white;border:1px solid #d8deea;border-radius:12px;padding:20px;margin:16px 0}h2,h3{color:#173b57;margin-top:0}label{font-weight:bold;display:block;margin-top:10px}input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;margin:6px 0 10px;font-size:15px}button{border:0;border-radius:8px;padding:11px 14px;margin:5px;cursor:pointer;font-size:14px}button:disabled{opacity:.5;cursor:not-allowed}.primary{background:#173b57;color:white}.success{background:#1f7a3a;color:white}.danger{background:#a52727;color:white}.muted{background:#e8e8e8}.warning{background:#c87f00;color:white}.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1;min-width:160px}.notice{background:#fff8e5;border:1px solid #e1c46b;padding:10px;border-radius:8px}.good{background:#eaf8ee;border:1px solid #7ac28a;padding:10px;border-radius:8px}.bad{background:#fdecec;border:1px solid #d97a7a;padding:10px;border-radius:8px}.status{font-weight:bold;color:#173b57}.hidden{display:none}.tab{display:none}.tab.active{display:block}audio{width:100%;margin:8px 0}.badge{display:inline-block;background:#eef4f9;border:1px solid #cbd8e6;border-radius:14px;padding:5px 10px;margin:3px}.nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;background:#e8eef5;padding:10px}.nav button{min-width:170px}.adminNav{display:none}.questionItem{border:1px solid #d8deea;background:#fafafa;border-radius:8px;padding:12px;margin:8px 0}table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#eee}.qrbox{background:#fff;border:1px dashed #aaa;border-radius:8px;padding:14px;text-align:center;margin-top:10px}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.metric{background:#eef4f9;border:1px solid #cbd8e6;border-radius:10px;padding:14px;text-align:center}.metric b{display:block;font-size:26px;color:#173b57}
 </style>
@@ -92,11 +92,59 @@ button[onclick*="reports"]:hover{
 .badge{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;margin:3px}
 </style>
 
+
+<style id="v16-3-safe-tab-colors">
+.nav button,
+button[onclick*="respondentTab"],
+button[onclick*="showResearcherLogin"],
+button[onclick*="gpsmap"],
+button[onclick*="analyticsTab"],
+button[onclick*="reportsTab"],
+button[onclick*="analytics"],
+button[onclick*="reports"]{
+  font-weight:700!important;border:0!important;border-radius:10px!important;
+  padding:14px 26px!important;margin:7px!important;color:#fff!important;
+  box-shadow:0 2px 7px rgba(0,0,0,.16)!important;transition:.18s!important;
+}
+button[onclick*="respondentTab"]{background:#198754!important;color:#fff!important}
+button[onclick*="showResearcherLogin"]{background:#0d6efd!important;color:#fff!important}
+button[onclick*="gpsmap"]{background:#6f42c1!important;color:#fff!important}
+button[onclick*="analyticsTab"],button[onclick*="analytics"]{background:#fd7e14!important;color:#fff!important}
+button[onclick*="reportsTab"],button[onclick*="reports"]{background:#8b1e3f!important;color:#fff!important}
+
+button[onclick*="captureGPSLocation"],button[onclick*="renderGpsMap"],button[onclick*="downloadGpsCsv"],button[onclick*="fitGpsMap"]{background:#6f42c1!important;color:#fff!important}
+button[onclick*="refreshLiveAnalytics"],button[onclick*="downloadLiveAnalyticsCsv"]{background:#fd7e14!important;color:#fff!important}
+button[onclick*="downloadQualitativeReport"],button[onclick*="downloadThemeSummaryCsv"],button[onclick*="downloadReport"]{background:#8b1e3f!important;color:#fff!important}
+button[onclick*="downloadWordFrequencyCsv"],button[onclick*="downloadTranscriptionManifest"]{background:#d4a017!important;color:#fff!important}
+button[onclick*="downloadThemeMatrixCsv"],button[onclick*="downloadTranscript"],button[onclick*="downloadCodebook"]{background:#0d9488!important;color:#fff!important}
+button.active,button.tab-active,button.selected{
+  outline:3px solid rgba(255,255,255,.95)!important;
+  box-shadow:0 0 0 3px rgba(23,59,87,.28),0 6px 18px rgba(0,0,0,.28)!important;
+  transform:translateY(-2px)!important;filter:brightness(1.08)!important;
+}
+.nav button:hover,button:hover{filter:brightness(1.06)}
+.v163-badge{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;margin:3px;color:#fff}
+</style>
+
 </head>
 <body>
-<header><h1 id="pageTitle">Audio Research Tool V16.2</h1><p id="pageSubtitle">Professional field research dashboard with GPS mapping, analytics, qualitative coding, word frequency, reporting, and supervisor monitoring.</p></header>
+<header><h1 id="pageTitle">Audio Research Tool V16.3</h1><p id="pageSubtitle">Professional field research dashboard with GPS mapping, analytics, qualitative coding, word frequency, reporting, and supervisor monitoring.</p></header>
 <div class="nav"><button class="tab-respondent" onclick="openTab(\'respondentTab\')" style="background:#198754!important;color:white!important;border:0!important;border-radius:10px!important;font-weight:700!important">Respondent Interview</button><button class="tab-researcher adminNav" onclick="showResearcherLogin()" style="background:#0d6efd!important;color:white!important;border:0!important;border-radius:10px!important;font-weight:700!important">Researcher Access</button><button class="tab-gps adminNav" onclick="openTab(\'gpsmap\');setTimeout(renderGpsMap,700)" style="background:#6f42c1!important;color:white!important;border:0!important;border-radius:10px!important;font-weight:700!important">GPS Map View</button><button class="muted adminNav" onclick="openTab('analyticsTab')" style="background:#fd7e14!important;color:white!important;border:0!important;border-radius:10px!important;font-weight:700!important">Analytics Dashboard</button><button class="muted adminNav" onclick="openTab('reportsTab')" style="background:#8b1e3f!important;color:white!important;border:0!important;border-radius:10px!important;font-weight:700!important">Reports</button></div>
 <main>
+
+<div class="card" id="v163ColorGuide">
+  <h2>Dashboard Colour Guide</h2>
+  <p>
+    <span class="v163-badge" style="background:#198754">Respondent Interview</span>
+    <span class="v163-badge" style="background:#0d6efd">Researcher Access</span>
+    <span class="v163-badge" style="background:#6f42c1">GPS Map View</span>
+    <span class="v163-badge" style="background:#fd7e14">Analytics Dashboard</span>
+    <span class="v163-badge" style="background:#8b1e3f">Reports</span>
+    <span class="v163-badge" style="background:#0d9488">Theme / AI Tools</span>
+    <span class="v163-badge" style="background:#d4a017">Word Frequency / Transcription</span>
+  </p>
+</div>
+
 <div class="card" id="colorLegend">
   <h2>Dashboard Colour Guide</h2>
   <p>
@@ -184,7 +232,7 @@ function ids(){return["projectId","projectTitle","institution","researcherName",
 function readFormSettings(){ids().forEach(id=>{if(el(id))settings[id]=el(id).value});return settings}function applySettingsToForm(){ids().forEach(id=>{if(el(id)&&settings[id]!==undefined)el(id).value=settings[id]});applySettings()}
 function saveSettingsToBrowser(){readFormSettings();localStorage.setItem(BKEY,JSON.stringify(settings));applySettings();el("saveStatus").innerText="Settings saved locally. Download settings.json and upload to GitHub root.";alert("Settings saved locally. Download settings.json and upload it to GitHub root.")}
 function downloadSettingsJson(){readFormSettings();download(new Blob([JSON.stringify(settings,null,2)],{type:"application/json"}),"settings.json")}
-function applySettings(){el("pageTitle").innerText=settings.surveyTitle||"Audio Research Tool V16.2";el("pageSubtitle").innerText=settings.surveyDescription||"";if(el("shareLink"))el("shareLink").value=location.origin+location.pathname;el("consentLabel").style.display=(settings.requireConsent==="No")?"none":"block";el("consent").style.display=(settings.requireConsent==="No")?"none":"block";el("enumeratorBlock").style.display=(settings.captureEnumerator==="No")?"none":"block";el("districtBlock").style.display=(settings.captureDistrict==="No")?"none":"block";el("gpsBlock").style.display=(settings.captureGPS==="Yes")?"block":"none";document.querySelectorAll(".backupBtn").forEach(b=>b.style.display=(settings.enableBackupDownloads==="No")?"none":"inline-block");checkSurveyStatus();renderReadiness();renderAnalytics()}
+function applySettings(){el("pageTitle").innerText=settings.surveyTitle||"Audio Research Tool V16.3";el("pageSubtitle").innerText=settings.surveyDescription||"";if(el("shareLink"))el("shareLink").value=location.origin+location.pathname;el("consentLabel").style.display=(settings.requireConsent==="No")?"none":"block";el("consent").style.display=(settings.requireConsent==="No")?"none":"block";el("enumeratorBlock").style.display=(settings.captureEnumerator==="No")?"none":"block";el("districtBlock").style.display=(settings.captureDistrict==="No")?"none":"block";el("gpsBlock").style.display=(settings.captureGPS==="Yes")?"block":"none";document.querySelectorAll(".backupBtn").forEach(b=>b.style.display=(settings.enableBackupDownloads==="No")?"none":"inline-block");checkSurveyStatus();renderReadiness();renderAnalytics()}
 function hasSubmitUrl(){return !!(settings.submitUrl&&settings.submitUrl.trim()&&!settings.submitUrl.includes("PASTE_YOUR"))}function isClosed(){return settings.closingDate?new Date()>new Date(settings.closingDate):false}function isReady(){return questions.length>0&&hasSubmitUrl()&&!(isClosed()&&settings.allowAfterClose!=="Yes")}
 function renderReadiness(){if(!el("readinessBox"))return;let ready=isReady();el("readinessBox").className=ready?"good":"bad";el("readinessBox").innerHTML="<b>Survey Status: "+(ready?"READY FOR RESPONDENTS":"NOT READY")+"</b><br>"+(questions.length>0?"✓":"✗")+" Questions loaded: "+questions.length+"<br>"+(hasSubmitUrl()?"✓":"✗")+" Submission URL configured<br>"+(isClosed()?"✗ Survey closed":"✓ Survey open")+"<br>"+(settings.captureGPS==="Yes"?"✓ GPS capture enabled":"- GPS disabled")}
 function checkSurveyStatus(){if(!el("surveyStatusBox"))return;if(isClosed()&&settings.allowAfterClose!=="Yes"){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey closed. The final date for submitting responses has passed.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else if(!hasSubmitUrl()){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey not ready. Researcher must configure the Submission Web App URL.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else{el("surveyStatusBox").className="good";el("surveyStatusBox").innerText="Survey is open."+(settings.closingDate?" Closing date: "+new Date(settings.closingDate).toLocaleString():" No closing date set.");el("startBtn").disabled=false;el("submitBtn").disabled=false}renderReadiness()}
@@ -552,6 +600,19 @@ function downloadExecutiveReport(){
   alert("Refresh analytics first, then use the Qualitative Report button.");
 }
 
+</script>
+
+
+<script id="v16-3-active-tab-visual-helper">
+document.addEventListener("click", function(e){
+  const btn=e.target.closest("button"); if(!btn)return;
+  const oc=btn.getAttribute("onclick")||"";
+  const isTab=oc.includes("respondentTab")||oc.includes("showResearcherLogin")||oc.includes("gpsmap")||oc.includes("analyticsTab")||oc.includes("reportsTab")||oc.includes("analytics")||oc.includes("reports");
+  if(!isTab)return;
+  const nav=btn.closest(".nav")||document.querySelector(".nav");
+  if(nav)nav.querySelectorAll("button").forEach(b=>b.classList.remove("active","tab-active","selected"));
+  btn.classList.add("active");
+}, true);
 </script>
 
 </body></html>
