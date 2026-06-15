@@ -2,13 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio Research Tool V14.0</title>
+<title>Audio Research Tool V15.0</title>
 <style>
 body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}header{background:#173b57;color:white;text-align:center;padding:24px}main{max-width:1180px;margin:22px auto;padding:0 14px}.card{background:white;border:1px solid #d8deea;border-radius:12px;padding:20px;margin:16px 0}h2,h3{color:#173b57;margin-top:0}label{font-weight:bold;display:block;margin-top:10px}input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;margin:6px 0 10px;font-size:15px}button{border:0;border-radius:8px;padding:11px 14px;margin:5px;cursor:pointer;font-size:14px}button:disabled{opacity:.5;cursor:not-allowed}.primary{background:#173b57;color:white}.success{background:#1f7a3a;color:white}.danger{background:#a52727;color:white}.muted{background:#e8e8e8}.warning{background:#c87f00;color:white}.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1;min-width:160px}.notice{background:#fff8e5;border:1px solid #e1c46b;padding:10px;border-radius:8px}.good{background:#eaf8ee;border:1px solid #7ac28a;padding:10px;border-radius:8px}.bad{background:#fdecec;border:1px solid #d97a7a;padding:10px;border-radius:8px}.status{font-weight:bold;color:#173b57}.hidden{display:none}.tab{display:none}.tab.active{display:block}audio{width:100%;margin:8px 0}.badge{display:inline-block;background:#eef4f9;border:1px solid #cbd8e6;border-radius:14px;padding:5px 10px;margin:3px}.nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;background:#e8eef5;padding:10px}.nav button{min-width:170px}.adminNav{display:none}.questionItem{border:1px solid #d8deea;background:#fafafa;border-radius:8px;padding:12px;margin:8px 0}table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#eee}.qrbox{background:#fff;border:1px dashed #aaa;border-radius:8px;padding:14px;text-align:center;margin-top:10px}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.metric{background:#eef4f9;border:1px solid #cbd8e6;border-radius:10px;padding:14px;text-align:center}.metric b{display:block;font-size:26px;color:#173b57}
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>#gpsMap{height:520px;width:100%;border:1px solid #ccd;border-radius:10px;margin-top:10px}.small-note{font-size:13px;color:#555}.warn{color:#a33;font-weight:bold}</style>
 </head>
 <body>
-<header><h1 id="pageTitle">Audio Research Tool V14.0</h1><p id="pageSubtitle">Advanced qualitative analysis with multi-theme detection, respondent-theme matrix, word frequency, and report generation.</p></header>
+<header><h1 id="pageTitle">Audio Research Tool V15.0</h1><p id="pageSubtitle">Advanced qualitative analysis with GPS map view, respondent markers, district coverage, and field monitoring.</p></header>
 <div class="nav"><button class="success" onclick="openTab('respondentTab')">Respondent Interview</button><button class="primary adminNav" onclick="showResearcherLogin()">Researcher Access</button><button class="muted adminNav" onclick="openTab('analyticsTab')">Analytics Dashboard</button><button class="muted adminNav" onclick="openTab('reportsTab')">Reports</button></div>
 <main>
 <section id="researcherLoginTab" class="tab"><div class="card"><h2>Researcher Login</h2><p class="notice">Use the admin link and PIN to access researcher tools.</p><label>Researcher PIN</label><input id="researcherPinInput" type="password"><div class="row"><button class="primary" onclick="loginResearcher()">Open Dashboard</button><button class="muted" onclick="openTab('respondentTab')">Back</button></div></div></section>
@@ -25,8 +28,34 @@ body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#222}header{
 <div class="card hidden" id="interviewPanel"><h2 id="questionTitle">Question</h2><p class="notice" id="questionText"></p><p class="status" id="audioLoadStatus"></p><audio id="questionAudio" controls preload="auto"></audio><div class="row" id="answerControls"><button class="muted" onclick="playQuestion()">Play Question</button><button class="primary" onclick="startAnswer()">Start Recording Answer</button><button class="danger" onclick="stopAnswer()">Stop Recording</button><button class="success" onclick="saveAnswer()">Save Answer and Continue</button></div><audio id="answerPreview" controls class="hidden"></audio><p class="status" id="interviewStatus">Ready.</p></div>
 <div class="card"><h2>Submit / Backup</h2><div class="row"><button class="success" id="submitBtn" onclick="submitOnline()">Submit Online</button><button class="primary backupBtn" onclick="downloadMyCsv()">Download CSV Backup</button><button class="muted backupBtn" onclick="downloadMyAudio()">Download Audio Backup</button></div><p class="status" id="submitStatus">Not submitted.</p><div id="summary"></div></div></section>
 
-<section id="analyticsTab" class="tab"><div class="card"><h2>Live Analytics Dashboard</h2><p class="notice" id="analyticsNotice">Click Refresh Live Analytics to read statistics from Google Sheets.</p><div class="row"><button class="success" onclick="refreshLiveAnalytics()">Refresh Live Analytics</button><button class="muted" onclick="startAutoRefresh()">Auto Refresh 30 sec</button><button class="danger" onclick="stopAutoRefresh()">Stop Auto Refresh</button><button class="primary" onclick="downloadLiveAnalyticsCsv()">Download Analytics CSV</button></div><div class="metrics"><div class="metric"><b id="mRespondents">0</b>Respondents</div><div class="metric"><b id="mQuestions">0</b>Questions</div><div class="metric"><b id="mSaved">0</b>Saved Answers</div><div class="metric"><b id="mComplete">0%</b>Completion</div><div class="metric"><b id="mGps">0</b>GPS Captured</div><div class="metric"><b id="mFull">0</b>Fully Answered</div><div class="metric"><b id="mEnumerators">0</b>Enumerators</div><div class="metric"><b id="mDistricts">0</b>Districts</div><div class="metric"><b id="mStatus">-</b>Survey Status</div></div><h3>Respondent Question Progress</h3><div id="questionProgressStats"><p>No live data loaded.</p></div><h3>Responses by Enumerator</h3><div id="enumeratorStats"><p>No live data loaded.</p></div><h3>Responses by District / Location</h3><div id="districtStats"><p>No live data loaded.</p></div><h3>Theme Frequency Workspace</h3><p class="notice">Enter transcripts, codes, themes and interpretations in Google Sheet columns named <b>Transcript</b>, <b>Code</b>, <b>Theme</b>, and <b>Interpretation</b>. Refresh analytics to summarize themes.</p><div id="themeStats"><p>No theme data loaded.</p></div><h3>AI-Ready Coding Workspace</h3><p class="notice">V14.0 can suggest multiple themes from transcript text already entered in Google Sheets. For full speech-to-text transcription, export the audio links and use Google Speech-to-Text, Whisper, or another approved transcription service, then paste transcripts into the Transcript column.</p><div id="aiThemeSuggestions"><p>No AI-ready suggestions loaded yet.</p></div><h3>Theme Matrix</h3><div id="themeMatrixStats"><p>No theme matrix loaded yet.</p></div><h3>Word Frequency Analysis</h3><div id="wordFrequencyStats"><p>No transcript word frequency loaded yet.</p></div><h3>Auto-Transcription Ready Workspace</h3><p class="notice">V14.0 prepares audio for transcription and imports completed transcript CSV files. Use an approved transcription service, then paste/import transcript text into Google Sheets.</p><div id="transcriptionStats"><p>Refresh analytics to see transcription status.</p></div><div class="row"><button class="primary" onclick="downloadTranscriptTemplate()">Download Transcript Template</button><button class="primary" onclick="downloadAnalysisTemplate()">Download Analysis Template</button><button class="muted" onclick="downloadCodebookTemplate()">Download Codebook</button><button class="warning" onclick="downloadThemeSummaryCsv()">Download Theme Summary CSV</button><button class="primary" onclick="downloadQualitativeReport()">Download Qualitative Report TXT</button><button class="primary" onclick="downloadWordFrequencyCsv()">Download Word Frequency CSV</button><button class="primary" onclick="downloadThemeMatrixCsv()">Download Theme Matrix CSV</button><button class="warning" onclick="downloadTranscriptionManifest()">Download Transcription Manifest</button><button class="primary" onclick="downloadTranscriptImportTemplate()">Download Transcript Import Template</button><input type="file" id="transcriptImportFile" accept=".csv" onchange="previewTranscriptImport()" style="margin-top:10px"><button class="primary" onclick="downloadTranscriptImportInstructions()">Import Instructions</button></div></div></section>
+<section id="analyticsTab" class="tab"><div class="card"><h2>Live Analytics Dashboard</h2><p class="notice" id="analyticsNotice">Click Refresh Live Analytics to read statistics from Google Sheets.</p><div class="row"><button class="success" onclick="refreshLiveAnalytics()">Refresh Live Analytics</button><button class="muted" onclick="startAutoRefresh()">Auto Refresh 30 sec</button><button class="danger" onclick="stopAutoRefresh()">Stop Auto Refresh</button><button class="primary" onclick="downloadLiveAnalyticsCsv()">Download Analytics CSV</button></div><div class="metrics"><div class="metric"><b id="mRespondents">0</b>Respondents</div><div class="metric"><b id="mQuestions">0</b>Questions</div><div class="metric"><b id="mSaved">0</b>Saved Answers</div><div class="metric"><b id="mComplete">0%</b>Completion</div><div class="metric"><b id="mGps">0</b>GPS Captured</div><div class="metric"><b id="mFull">0</b>Fully Answered</div><div class="metric"><b id="mEnumerators">0</b>Enumerators</div><div class="metric"><b id="mDistricts">0</b>Districts</div><div class="metric"><b id="mStatus">-</b>Survey Status</div></div><h3>Respondent Question Progress</h3><div id="questionProgressStats"><p>No live data loaded.</p></div><h3>Responses by Enumerator</h3><div id="enumeratorStats"><p>No live data loaded.</p></div><h3>Responses by District / Location</h3><div id="districtStats"><p>No live data loaded.</p></div><h3>Theme Frequency Workspace</h3><p class="notice">Enter transcripts, codes, themes and interpretations in Google Sheet columns named <b>Transcript</b>, <b>Code</b>, <b>Theme</b>, and <b>Interpretation</b>. Refresh analytics to summarize themes.</p><div id="themeStats"><p>No theme data loaded.</p></div><h3>AI-Ready Coding Workspace</h3><p class="notice">V15.0 can suggest multiple themes from transcript text already entered in Google Sheets. For full speech-to-text transcription, export the audio links and use Google Speech-to-Text, Whisper, or another approved transcription service, then paste transcripts into the Transcript column.</p><div id="aiThemeSuggestions"><p>No AI-ready suggestions loaded yet.</p></div><h3>Theme Matrix</h3><div id="themeMatrixStats"><p>No theme matrix loaded yet.</p></div><h3>Word Frequency Analysis</h3><div id="wordFrequencyStats"><p>No transcript word frequency loaded yet.</p></div><h3>Auto-Transcription Ready Workspace</h3><p class="notice">V15.0 prepares audio for transcription and imports completed transcript CSV files. Use an approved transcription service, then paste/import transcript text into Google Sheets.</p><div id="transcriptionStats"><p>Refresh analytics to see transcription status.</p></div><div class="row"><button class="primary" onclick="downloadTranscriptTemplate()">Download Transcript Template</button><button class="primary" onclick="downloadAnalysisTemplate()">Download Analysis Template</button><button class="muted" onclick="downloadCodebookTemplate()">Download Codebook</button><button class="warning" onclick="downloadThemeSummaryCsv()">Download Theme Summary CSV</button><button class="primary" onclick="downloadQualitativeReport()">Download Qualitative Report TXT</button><button class="primary" onclick="downloadWordFrequencyCsv()">Download Word Frequency CSV</button><button class="primary" onclick="downloadThemeMatrixCsv()">Download Theme Matrix CSV</button><button class="warning" onclick="downloadTranscriptionManifest()">Download Transcription Manifest</button><button class="primary" onclick="downloadTranscriptImportTemplate()">Download Transcript Import Template</button><input type="file" id="transcriptImportFile" accept=".csv" onchange="previewTranscriptImport()" style="margin-top:10px"><button class="primary" onclick="downloadTranscriptImportInstructions()">Import Instructions</button></div></div></section>
 <section id="reportsTab" class="tab"><div class="card"><h2>Research Report Generator Workspace</h2><label>Executive Summary Notes</label><textarea id="execNotes"></textarea><label>Key Findings</label><textarea id="findingsNotes"></textarea><label>Conclusions</label><textarea id="conclusionNotes"></textarea><label>Recommendations</label><textarea id="recommendNotes"></textarea><div class="row"><button class="primary" onclick="downloadReportTemplate()">Download Board-Ready TXT Report</button><button class="muted" onclick="downloadReportOutline()">Download Report Outline</button></div></div></section>
+
+<section id="gpsmap" class="card hidden">
+  <h2>Respondent GPS Map View</h2>
+  <p class="notice">Interactive GPS map using respondents' latitude and longitude from Google Sheets. Refresh live analytics first to load the latest GPS data.</p>
+  <div class="row">
+    <button class="primary" onclick="refreshLiveAnalytics();setTimeout(renderGpsMap,1200)">Refresh GPS Map</button>
+    <button class="primary" onclick="downloadGpsCsv()">Download GPS CSV</button>
+    <button class="muted" onclick="fitGpsMap()">Fit All Markers</button>
+  </div>
+  <div class="row">
+    <label>Filter Enumerator</label>
+    <select id="gpsEnumFilter" onchange="renderGpsMap()"><option value="">All Enumerators</option></select>
+    <label>Filter District</label>
+    <select id="gpsDistrictFilter" onchange="renderGpsMap()"><option value="">All Districts</option></select>
+  </div>
+  <div id="gpsMap"></div>
+  <h3>GPS Coverage Summary</h3>
+  <div id="gpsSummary"><p>No GPS data loaded.</p></div>
+  <h3>GPS Accuracy Monitoring</h3>
+  <div id="gpsQuality"><p>No GPS accuracy data loaded.</p></div>
+  <h3>District Coverage</h3>
+  <div id="gpsDistrictSummary"><p>No district GPS data loaded.</p></div>
+  <h3>Enumerator Field Coverage</h3>
+  <div id="gpsEnumSummary"><p>No enumerator GPS data loaded.</p></div>
+</section>
+
 </main>
 
 <script>
@@ -38,7 +67,7 @@ function ids(){return["projectId","projectTitle","institution","researcherName",
 function readFormSettings(){ids().forEach(id=>{if(el(id))settings[id]=el(id).value});return settings}function applySettingsToForm(){ids().forEach(id=>{if(el(id)&&settings[id]!==undefined)el(id).value=settings[id]});applySettings()}
 function saveSettingsToBrowser(){readFormSettings();localStorage.setItem(BKEY,JSON.stringify(settings));applySettings();el("saveStatus").innerText="Settings saved locally. Download settings.json and upload to GitHub root.";alert("Settings saved locally. Download settings.json and upload it to GitHub root.")}
 function downloadSettingsJson(){readFormSettings();download(new Blob([JSON.stringify(settings,null,2)],{type:"application/json"}),"settings.json")}
-function applySettings(){el("pageTitle").innerText=settings.surveyTitle||"Audio Research Tool V14.0";el("pageSubtitle").innerText=settings.surveyDescription||"";if(el("shareLink"))el("shareLink").value=location.origin+location.pathname;el("consentLabel").style.display=(settings.requireConsent==="No")?"none":"block";el("consent").style.display=(settings.requireConsent==="No")?"none":"block";el("enumeratorBlock").style.display=(settings.captureEnumerator==="No")?"none":"block";el("districtBlock").style.display=(settings.captureDistrict==="No")?"none":"block";el("gpsBlock").style.display=(settings.captureGPS==="Yes")?"block":"none";document.querySelectorAll(".backupBtn").forEach(b=>b.style.display=(settings.enableBackupDownloads==="No")?"none":"inline-block");checkSurveyStatus();renderReadiness();renderAnalytics()}
+function applySettings(){el("pageTitle").innerText=settings.surveyTitle||"Audio Research Tool V15.0";el("pageSubtitle").innerText=settings.surveyDescription||"";if(el("shareLink"))el("shareLink").value=location.origin+location.pathname;el("consentLabel").style.display=(settings.requireConsent==="No")?"none":"block";el("consent").style.display=(settings.requireConsent==="No")?"none":"block";el("enumeratorBlock").style.display=(settings.captureEnumerator==="No")?"none":"block";el("districtBlock").style.display=(settings.captureDistrict==="No")?"none":"block";el("gpsBlock").style.display=(settings.captureGPS==="Yes")?"block":"none";document.querySelectorAll(".backupBtn").forEach(b=>b.style.display=(settings.enableBackupDownloads==="No")?"none":"inline-block");checkSurveyStatus();renderReadiness();renderAnalytics()}
 function hasSubmitUrl(){return !!(settings.submitUrl&&settings.submitUrl.trim()&&!settings.submitUrl.includes("PASTE_YOUR"))}function isClosed(){return settings.closingDate?new Date()>new Date(settings.closingDate):false}function isReady(){return questions.length>0&&hasSubmitUrl()&&!(isClosed()&&settings.allowAfterClose!=="Yes")}
 function renderReadiness(){if(!el("readinessBox"))return;let ready=isReady();el("readinessBox").className=ready?"good":"bad";el("readinessBox").innerHTML="<b>Survey Status: "+(ready?"READY FOR RESPONDENTS":"NOT READY")+"</b><br>"+(questions.length>0?"✓":"✗")+" Questions loaded: "+questions.length+"<br>"+(hasSubmitUrl()?"✓":"✗")+" Submission URL configured<br>"+(isClosed()?"✗ Survey closed":"✓ Survey open")+"<br>"+(settings.captureGPS==="Yes"?"✓ GPS capture enabled":"- GPS disabled")}
 function checkSurveyStatus(){if(!el("surveyStatusBox"))return;if(isClosed()&&settings.allowAfterClose!=="Yes"){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey closed. The final date for submitting responses has passed.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else if(!hasSubmitUrl()){el("surveyStatusBox").className="bad";el("surveyStatusBox").innerText="Survey not ready. Researcher must configure the Submission Web App URL.";el("startBtn").disabled=true;el("submitBtn").disabled=true}else{el("surveyStatusBox").className="good";el("surveyStatusBox").innerText="Survey is open."+(settings.closingDate?" Closing date: "+new Date(settings.closingDate).toLocaleString():" No closing date set.");el("startBtn").disabled=false;el("submitBtn").disabled=false}renderReadiness()}
@@ -288,4 +317,81 @@ function downloadTranscriptTemplate(){download(new Blob(["Respondent ID,Question
 function download(blob,name){let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a)}function blobToBase64(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onloadend=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(blob)})}
 async function submitOnline(){checkSurveyStatus();if(!isReady()){alert("Survey is not ready or closed.");return}if(!answers.length){alert("No answers to submit.");return}if(settings.captureGPS==="Yes"&&!el("gpsLatitude").value){alert("GPS location is required before submission. Click Capture GPS Location.");return}el("submitStatus").innerText="Preparing upload...";try{let files=[];for(let a of answers)files.push({fileName:a.answerFileName,mimeType:"audio/webm",base64:await blobToBase64(a.answerBlob),questionId:a.questionId});let metadata=answers.map(a=>({respondentId:a.respondentId,enumeratorId:el("enumeratorId").value,district:el("district").value,latitude:el("gpsLatitude").value,longitude:el("gpsLongitude").value,gpsAccuracy:el("gpsAccuracy").value,gpsTimestamp:el("gpsTimestamp").value,questionId:a.questionId,questionText:a.questionText,questionAudio:a.questionAudio,answerFileName:a.answerFileName,timestamp:a.timestamp,notes:a.notes}));let payload={...settings,expectedQuestions:questions.length,respondentId:fileSafe(el("respondentId").value),enumeratorId:el("enumeratorId").value,district:el("district").value,latitude:el("gpsLatitude").value,longitude:el("gpsLongitude").value,gpsAccuracy:el("gpsAccuracy").value,gpsTimestamp:el("gpsTimestamp").value,consent:el("consent").value,notes:el("notes").value,submittedAt:stamp(),startedAt:startTime?new Date(startTime).toISOString():"",durationSeconds:startTime?Math.round((Date.now()-startTime)/1000):"",metadata,files};let r=await fetch(settings.submitUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});el("submitStatus").innerText="Submitted: "+await r.text();alert("Submitted successfully.");el("submitBtn").disabled=true;refreshLiveAnalytics()}catch(e){el("submitStatus").innerText="Submission failed. Download backups.";alert("Submission failed. Download backups.")}}
 (async()=>{setupAdminVisibility();await loadSettings();await loadQuestions();openTab("respondentTab")})();
+
+let gpsMapObj=null;
+let gpsMarkers=[];
+function ensureGpsMap(){
+  if(!document.getElementById("gpsMap"))return null;
+  if(!window.L){alert("Map library could not load. Check internet connection.");return null}
+  if(!gpsMapObj){
+    gpsMapObj=L.map("gpsMap").setView([1.3733,32.2903],7);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(gpsMapObj);
+  }
+  setTimeout(()=>gpsMapObj.invalidateSize(),300);
+  return gpsMapObj;
+}
+function gpsRows(){
+  return (lastLiveStats&&lastLiveStats.gpsRecords)?lastLiveStats.gpsRecords:[];
+}
+function resetSelectOptions(sel, values){
+  if(!sel)return;
+  const current=sel.value;
+  sel.innerHTML='<option value="">All</option>';
+  values.sort().forEach(x=>{let o=document.createElement("option");o.value=x;o.textContent=x;sel.appendChild(o);});
+  sel.value=current;
+}
+function populateGpsFilters(rows){
+  let enumSet={}, distSet={};
+  rows.forEach(r=>{if(r.enumerator)enumSet[r.enumerator]=true;if(r.district)distSet[r.district]=true;});
+  resetSelectOptions(el("gpsEnumFilter"),Object.keys(enumSet));
+  resetSelectOptions(el("gpsDistrictFilter"),Object.keys(distSet));
+}
+function renderGpsMap(){
+  const map=ensureGpsMap(); if(!map)return;
+  const rows=gpsRows();
+  populateGpsFilters(rows);
+  gpsMarkers.forEach(m=>map.removeLayer(m)); gpsMarkers=[];
+  const ef=el("gpsEnumFilter")?el("gpsEnumFilter").value:"";
+  const df=el("gpsDistrictFilter")?el("gpsDistrictFilter").value:"";
+  const filtered=rows.filter(r=>(!ef||r.enumerator===ef)&&(!df||r.district===df));
+  filtered.forEach(r=>{
+    const lat=parseFloat(r.latitude), lng=parseFloat(r.longitude);
+    if(isNaN(lat)||isNaN(lng))return;
+    const acc=parseFloat(r.gpsAccuracy||0);
+    const poor=acc && acc>100;
+    const marker=L.marker([lat,lng]).addTo(map);
+    marker.bindPopup("<b>Respondent:</b> "+(r.respondentId||"")+"<br><b>Enumerator:</b> "+(r.enumerator||"")+"<br><b>District:</b> "+(r.district||"")+"<br><b>Questions:</b> "+(r.questionsAnswered||0)+"/"+((lastLiveStats&&lastLiveStats.questions)||"")+"<br><b>Latitude:</b> "+lat+"<br><b>Longitude:</b> "+lng+"<br><b>Accuracy:</b> "+(r.gpsAccuracy||"")+" m"+(poor?" <span class='warn'>⚠️ Poor</span>":"")+"<br><b>Submitted:</b> "+(r.submittedAt||""));
+    gpsMarkers.push(marker);
+    if(acc && acc<5000){const circle=L.circle([lat,lng],{radius:acc}).addTo(map); gpsMarkers.push(circle);}
+  });
+  updateGpsTables(filtered, rows);
+  fitGpsMap();
+}
+function fitGpsMap(){
+  if(!gpsMapObj||gpsMarkers.length===0)return;
+  const pts=gpsMarkers.filter(m=>m.getLatLng);
+  if(!pts.length)return;
+  const group=L.featureGroup(pts);
+  gpsMapObj.fitBounds(group.getBounds().pad(0.2));
+}
+function updateGpsTables(filtered, allRows){
+  const totalRespondents=(lastLiveStats&&lastLiveStats.respondents)||0;
+  const gpsRespondents=new Set(allRows.map(r=>r.respondentId).filter(Boolean)).size;
+  const coverage=totalRespondents?Math.round((gpsRespondents/totalRespondents)*100):0;
+  el("gpsSummary").innerHTML="<table><tr><th>Indicator</th><th>Value</th></tr><tr><td>Total Respondents</td><td>"+totalRespondents+"</td></tr><tr><td>Respondents with GPS</td><td>"+gpsRespondents+"</td></tr><tr><td>GPS Coverage</td><td>"+coverage+"%</td></tr><tr><td>Displayed Markers</td><td>"+filtered.length+"</td></tr></table>";
+  let qrows=filtered.map(r=>"<tr><td>"+(r.respondentId||"")+"</td><td>"+(r.district||"")+"</td><td>"+(r.gpsAccuracy||"")+"</td><td>"+(parseFloat(r.gpsAccuracy||0)>100?"⚠️ Poor":"Good")+"</td></tr>").join("");
+  el("gpsQuality").innerHTML=qrows?"<table><tr><th>Respondent</th><th>District</th><th>Accuracy m</th><th>Status</th></tr>"+qrows+"</table>":"<p>No GPS quality data.</p>";
+  let dist={}, en={};
+  filtered.forEach(r=>{if(r.district)dist[r.district]=(dist[r.district]||0)+1;if(r.enumerator)en[r.enumerator]=(en[r.enumerator]||0)+1;});
+  el("gpsDistrictSummary").innerHTML=tableFromObject(dist,"District","Respondents");
+  el("gpsEnumSummary").innerHTML=tableFromObject(en,"Enumerator","Respondents");
+}
+function downloadGpsCsv(){
+  const rows=gpsRows();
+  if(!rows.length){alert("Refresh live analytics first.");return}
+  let out="Respondent ID,Enumerator,District,Latitude,Longitude,GPS Accuracy,GPS Timestamp,Questions Answered,Submitted At\n";
+  rows.forEach(r=>out+=csv(r.respondentId)+","+csv(r.enumerator)+","+csv(r.district)+","+csv(r.latitude)+","+csv(r.longitude)+","+csv(r.gpsAccuracy)+","+csv(r.gpsTimestamp)+","+csv(r.questionsAnswered)+","+csv(r.submittedAt)+"\n");
+  download(new Blob([out],{type:"text/csv"}),"respondent_gps_records.csv");
+}
+
 </script></body></html>
