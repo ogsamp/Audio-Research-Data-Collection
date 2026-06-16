@@ -140,7 +140,7 @@ function doGet(e) {
     if (action === "stats") return getStats_(callback, e);
     if (action === "setupColumns") return setupColumns_(callback);
     if (action === "suggestThemes") return writeSuggestedThemes_(callback);
-    return jsonOutput_({status:"success", message:"Audio Research Backend V15.0 is running"}, callback);
+    return jsonOutput_({status:"success", message:"Audio Research Backend V18.0 is running"}, callback);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, callback);
   }
@@ -149,7 +149,7 @@ function doGet(e) {
 function setupColumns_(callback) {
   const sheet = getSheet_();
   const headers = ensureHeaders_(sheet);
-  return jsonOutput_({status:"success", message:"V15.0 GPS map and advanced qualitative analysis columns are ready", headers:headers}, callback);
+  return jsonOutput_({status:"success", message:"V18.0 GPS map and advanced qualitative analysis columns are ready", headers:headers}, callback);
 }
 
 function writeSuggestedThemes_(callback) {
@@ -416,6 +416,7 @@ function getStats_(callback, e) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.action === "updateTranscript") return updateTranscript_(data);
     const folder = DriveApp.getFolderById(FOLDER_ID);
     const sheet = getSheet_();
     const headers = ensureHeaders_(sheet);
@@ -473,5 +474,37 @@ function doPost(e) {
     return jsonOutput_({status:"success", rows:(data.metadata || []).length}, null);
   } catch (err) {
     return jsonOutput_({status:"error", message:String(err)}, null);
+  }
+}
+
+function updateTranscript_(data) {
+  try {
+    const sheet = getSheet_();
+    const values = sheet.getDataRange().getValues();
+    if (values.length < 2) return ContentService.createTextOutput(JSON.stringify({status:"error", message:"No rows found"})).setMimeType(ContentService.MimeType.JSON);
+    const headers = values[0].map(String);
+    function c(names){for (let i=0;i<names.length;i++){let idx=headers.indexOf(names[i]); if(idx>=0)return idx+1;} return -1;}
+    const respCol=c(["Respondent ID","Respondent"]);
+    const qCol=c(["Question ID","Question"]);
+    const transcriptCol=c(["Transcript"]);
+    const statusCol=c(["Transcript Status"]);
+    const byCol=c(["Transcribed By"]);
+    const dateCol=c(["Transcription Date"]);
+    if(respCol<0 || qCol<0 || transcriptCol<0) return ContentService.createTextOutput(JSON.stringify({status:"error", message:"Required columns missing"})).setMimeType(ContentService.MimeType.JSON);
+    let updated=0;
+    for(let r=2;r<=values.length;r++){
+      const resp=String(sheet.getRange(r,respCol).getValue()||"").trim();
+      const q=String(sheet.getRange(r,qCol).getValue()||"").trim();
+      if(resp===String(data.respondentId||"").trim() && q===String(data.questionId||"").trim()){
+        sheet.getRange(r,transcriptCol).setValue(data.transcript||"");
+        if(statusCol>0) sheet.getRange(r,statusCol).setValue(data.transcriptStatus||"Transcribed");
+        if(byCol>0) sheet.getRange(r,byCol).setValue(data.transcribedBy||"Auto");
+        if(dateCol>0) sheet.getRange(r,dateCol).setValue(data.transcriptionDate||new Date().toISOString());
+        updated++;
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({status:"success", updated:updated})).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({status:"error", message:String(err)})).setMimeType(ContentService.MimeType.JSON);
   }
 }
